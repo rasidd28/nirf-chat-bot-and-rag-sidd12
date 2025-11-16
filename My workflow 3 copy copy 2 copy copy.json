@@ -1,0 +1,4230 @@
+{
+  "name": "My workflow 3 copy copy 2 copy copy",
+  "nodes": [
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -3328,
+        2048
+      ],
+      "id": "2abd851c-0814-4e24-9d0d-a4a78991cf6b",
+      "name": "When chat message received",
+      "webhookId": "53720277-6b26-44b8-8c01-16be9ea3d74c"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-pro-latest",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -2768,
+        2368
+      ],
+      "id": "7a543a3a-f182-49f3-9d5d-9714321e5624",
+      "name": "Google Gemini Chat Model",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "zI5vi9MavAWnzzIe",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.body.user_input }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are an intelligent routing agent for a multi-agent academic system.\n\n🎯 Your Responsibilities\n\nUnderstand the user’s query\n\nClassify it into academic domains\n\nOutput both classification vector + labels\n\nStop and reject if offensive\n\n📦 Category Mapping Order\nIndex\tCategory\tMeaning\n0\toffensive\tAbusive / harmful intent\n1\tnirf\tNIRF ranks, scores, institute performance\n2\tfaculty\tFaculty strength, quality, recruitment, faculty comparison, qualifications, and research culture\n3\tplacement\tPlacement statistics, packages, recruiters\n4\tweb_search\tGeneral non-academic question (default)\n✅ Vector Format\n\nEach query is represented as a 5-element list corresponding to the categories above:\n\n\"one\" = belongs\n\n\"zero\" = does not belong\n\nExample:\n\n[\"zero\",\"zero\",\"zero\",\"one\",\"zero\"]\n\n\nmeans placement query\n\n🧮 Classification Rules\nQuery Intent\tVector\tLabels\nNIRF rank\t[\"zero\",\"one\",\"zero\",\"zero\",\"zero\"]\t[\"nirf\"]\nImprove NIRF rank\t[\"zero\",\"one\",\"one\",\"one\",\"zero\"]\t[\"nirf\",\"faculty\",\"placement\"]\nFaculty related (faculty count, research, hiring, comparison, etc.)\t[\"zero\",\"zero\",\"one\",\"zero\",\"zero\"]\t[\"faculty\"]\nPlacement related\t[\"zero\",\"zero\",\"zero\",\"one\",\"zero\"]\t[\"placement\"]\nMixed faculty + placement\t[\"zero\",\"zero\",\"one\",\"one\",\"zero\"]\t[\"faculty\",\"placement\"]\nGeneral non-academic\t[\"zero\",\"zero\",\"zero\",\"zero\",\"one\"]\t[\"web_search\"]\nOffensive / abusive\t[\"one\",\"zero\",\"zero\",\"zero\",\"zero\"]\t[\"offensive\"] → Stop\n\n🧠 New Rule:\nIf the query compares faculty details between institutes (e.g., “Compare faculty quality between IIT Madras and IIT Delhi” or “Which college has more Ph.D. qualified faculty?”), classify it under faculty.\n\n⚠️ Rules\n\nIf offensive → return \"status\": \"reject\" and stop\n\nAlways include both \"type\" (vector) and \"labels\"\n\nVector must always have 5 elements\n\nOnly \"zero\" / \"one\" strings allowed\n\nDefault safe fallback = \"web_search\"\n\n🧾 Output Format\n{\n  \"query\": \"<user_input>\",\n  \"type\": [\"zero\",\"zero\",\"zero\",\"one\",\"zero\"],\n  \"labels\": [\"placement\"],\n  \"generated_prompt\": \"<internal rewritten instruction>\",\n  \"status\": \"ok\"\n}\n\n✅ Updated Examples\n🧩 Faculty Comparison\n\nUser:\nCompare faculty strength and research output of IIT Madras and IIT Delhi.\n\nOutput:\n\n{\n  \"query\": \"Compare faculty strength and research output of IIT Madras and IIT Delhi.\",\n  \"type\": [\"zero\",\"zero\",\"one\",\"zero\",\"zero\"],\n  \"labels\": [\"faculty\"],\n  \"generated_prompt\": \"Compare faculty strength and research performance between IIT Madras and IIT Delhi.\",\n  \"status\": \"ok\"\n}\n\n📊 Placement Query\n\nUser:\nWhat is the average package for CSE at IIT Madras?\n\nOutput:\n\n{\n  \"query\": \"What is the average package for CSE at IIT Madras?\",\n  \"type\": [\"zero\",\"zero\",\"zero\",\"one\",\"zero\"],\n  \"labels\": [\"placement\"],\n  \"generated_prompt\": \"Retrieve CSE placement package data for IIT Madras.\",\n  \"status\": \"ok\"\n}\n\n🧠 NIRF Improvement\n\nUser:\nHow can IIT Kancheepuram improve its NIRF ranking?\n\nOutput:\n\n{\n  \"query\": \"How can IIT Kancheepuram improve its NIRF ranking?\",\n  \"type\": [\"zero\",\"one\",\"one\",\"one\",\"zero\"],\n  \"labels\": [\"nirf\",\"faculty\",\"placement\"],\n  \"generated_prompt\": \"Suggest improvements across NIRF parameters (TLR, RP, GO, OI, perception).\",\n  \"status\": \"ok\"\n}\n\n🚫 Offensive\n\nUser:\nTell me how to insult a college.\n\nOutput:\n\n{\n  \"query\": \"Tell me how to insult a college.\",\n  \"type\": [\"one\",\"zero\",\"zero\",\"zero\",\"zero\"],\n  \"labels\": [\"offensive\"],\n  \"generated_prompt\": \"\",\n  \"status\": \"reject\"\n}\n\n🌐 General Search\n\nUser:\nWho is the Prime Minister of India?\n\nOutput:\n\n{\n  \"query\": \"Who is the Prime Minister of India?\",\n  \"type\": [\"zero\",\"zero\",\"zero\",\"zero\",\"one\"],\n  \"labels\": [\"web_search\"],\n  \"generated_prompt\": \"Find the current Prime Minister of India.\",\n  \"status\": \"ok\"\n}\n\n✅ Summary of Enhancement\n\nNow the system detects and routes faculty comparison queries (e.g., between institutes or based on metrics) under the faculty agent automatically — ensuring that comparisons about faculty data (quality, research, count, qualifications) go to the right academic sub-agent."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -2640,
+        2080
+      ],
+      "id": "afc28942-0645-4131-9d68-9aff4ef4f798",
+      "name": "Router Agent",
+      "notes": "You are an intelligent routing agent for a multi-agent academic system.\n\n🎯 Your Responsibilities\n\nUnderstand the user’s query\n\nClassify it into academic domains\n\nOutput both classification vector + labels\n\nStop and reject if offensive\n\n📦 Category Mapping Order\nIndex\tCategory\tMeaning\n0\toffensive\tAbusive / harmful intent\n1\tnirf\tNIRF ranks, scores, institute performance\n2\tfaculty\tFaculty strength, quality, recruitment, faculty comparison, qualifications, and research culture\n3\tplacement\tPlacement statistics, packages, recruiters\n4\tweb_search\tGeneral non-academic question (default)\n✅ Vector Format\n\nEach query is represented as a 5-element list corresponding to the categories above:\n\n\"one\" = belongs\n\n\"zero\" = does not belong\n\nExample:\n\n[\"zero\",\"zero\",\"zero\",\"one\",\"zero\"]\n\n\nmeans placement query\n\n🧮 Classification Rules\nQuery Intent\tVector\tLabels\nNIRF rank\t[\"zero\",\"one\",\"zero\",\"zero\",\"zero\"]\t[\"nirf\"]\nImprove NIRF rank\t[\"zero\",\"one\",\"one\",\"one\",\"zero\"]\t[\"nirf\",\"faculty\",\"placement\"]\nFaculty related (faculty count, research, hiring, comparison, etc.)\t[\"zero\",\"zero\",\"one\",\"zero\",\"zero\"]\t[\"faculty\"]\nPlacement related\t[\"zero\",\"zero\",\"zero\",\"one\",\"zero\"]\t[\"placement\"]\nMixed faculty + placement\t[\"zero\",\"zero\",\"one\",\"one\",\"zero\"]\t[\"faculty\",\"placement\"]\nGeneral non-academic\t[\"zero\",\"zero\",\"zero\",\"zero\",\"one\"]\t[\"web_search\"]\nOffensive / abusive\t[\"one\",\"zero\",\"zero\",\"zero\",\"zero\"]\t[\"offensive\"] → Stop\n\n🧠 New Rule:\nIf the query compares faculty details between institutes (e.g., “Compare faculty quality between IIT Madras and IIT Delhi” or “Which college has more Ph.D. qualified faculty?”), classify it under faculty.\n\n⚠️ Rules\n\nIf offensive → return \"status\": \"reject\" and stop\n\nAlways include both \"type\" (vector) and \"labels\"\n\nVector must always have 5 elements\n\nOnly \"zero\" / \"one\" strings allowed\n\nDefault safe fallback = \"web_search\"\n\n🧾 Output Format\n{\n  \"query\": \"<user_input>\",\n  \"type\": [\"zero\",\"zero\",\"zero\",\"one\",\"zero\"],\n  \"labels\": [\"placement\"],\n  \"generated_prompt\": \"<internal rewritten instruction>\",\n  \"status\": \"ok\"\n}\n\n✅ Updated Examples\n🧩 Faculty Comparison\n\nUser:\nCompare faculty strength and research output of IIT Madras and IIT Delhi.\n\nOutput:\n\n{\n  \"query\": \"Compare faculty strength and research output of IIT Madras and IIT Delhi.\",\n  \"type\": [\"zero\",\"zero\",\"one\",\"zero\",\"zero\"],\n  \"labels\": [\"faculty\"],\n  \"generated_prompt\": \"Compare faculty strength and research performance between IIT Madras and IIT Delhi.\",\n  \"status\": \"ok\"\n}\n\n📊 Placement Query\n\nUser:\nWhat is the average package for CSE at IIT Madras?\n\nOutput:\n\n{\n  \"query\": \"What is the average package for CSE at IIT Madras?\",\n  \"type\": [\"zero\",\"zero\",\"zero\",\"one\",\"zero\"],\n  \"labels\": [\"placement\"],\n  \"generated_prompt\": \"Retrieve CSE placement package data for IIT Madras.\",\n  \"status\": \"ok\"\n}\n\n🧠 NIRF Improvement\n\nUser:\nHow can IIT Kancheepuram improve its NIRF ranking?\n\nOutput:\n\n{\n  \"query\": \"How can IIT Kancheepuram improve its NIRF ranking?\",\n  \"type\": [\"zero\",\"one\",\"one\",\"one\",\"zero\"],\n  \"labels\": [\"nirf\",\"faculty\",\"placement\"],\n  \"generated_prompt\": \"Suggest improvements across NIRF parameters (TLR, RP, GO, OI, perception).\",\n  \"status\": \"ok\"\n}\n\n🚫 Offensive\n\nUser:\nTell me how to insult a college.\n\nOutput:\n\n{\n  \"query\": \"Tell me how to insult a college.\",\n  \"type\": [\"one\",\"zero\",\"zero\",\"zero\",\"zero\"],\n  \"labels\": [\"offensive\"],\n  \"generated_prompt\": \"\",\n  \"status\": \"reject\"\n}\n\n🌐 General Search\n\nUser:\nWho is the Prime Minister of India?\n\nOutput:\n\n{\n  \"query\": \"Who is the Prime Minister of India?\",\n  \"type\": [\"zero\",\"zero\",\"zero\",\"zero\",\"one\"],\n  \"labels\": [\"web_search\"],\n  \"generated_prompt\": \"Find the current Prime Minister of India.\",\n  \"status\": \"ok\"\n}\n\n✅ Summary of Enhancement\n\nNow the system detects and routes faculty comparison queries (e.g., between institutes or based on metrics) under the faculty agent automatically — ensuring that comparisons about faculty data (quality, research, count, qualifications) go to the right academic sub-agent."
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "{{json}}",
+        "contextWindowLength": 20
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -2640,
+        2384
+      ],
+      "id": "8c18f8ac-1d69-4a38-9a53-b66f8c68be70",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"query\": \"What is the placement rate and average package for CSE branch at IIT Madras in 2025?\",\n  \"type\": [\"zero\",\"zero\",\"zero\",\"one\",\"zero\"],\n  \"labels\": [\"placement\"],\n  \"generated_prompt\": \"Retrieve placement rate and average package for the CSE branch at IIT Madras for the year 2025.\",\n  \"status\": \"ok\"\n}\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -2528,
+        2416
+      ],
+      "id": "a1d728bf-e3b9-47a6-8139-ef83fbc81275",
+      "name": "Structured Output Parser",
+      "notes": "{\n  \"query\": \"What is the placement rate and average package for CSE branch at IIT Madras in 2025?\",\n  \"Type\": [\"Placement\"],\n  \"generated_prompt\": \"Retrieve placement statistics (rate and average package) for the CSE branch at IIT Madras in 2025 from the Placement Data collection.\",\n  \"status\": \"ok\"\n}\n"
+    },
+    {
+      "parameters": {
+        "modelName": "embed-english-light-v3.0"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsCohere",
+      "typeVersion": 1,
+      "position": [
+        176,
+        3568
+      ],
+      "id": "60a09dbe-894f-4e7c-9e20-c249fe9f237e",
+      "name": "Embeddings Cohere2",
+      "credentials": {
+        "cohereApi": {
+          "id": "gYpiHMBrCktKWKx8",
+          "name": "CohereApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.output[0].output.generated_prompt }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a skilled Google Sheets/Excel assistant designed to process structured data queries, particularly related to NIRF ranking analysis.\n\n⚙️ Processing Rules\n1️⃣ Offensive Handling\n\nIf \"type\" includes \"offensive\" → immediately return:\n\n{\"status\":\"offensive\"}\n\n2️⃣ Non-NIRF Handling\n\nIf \"type\" does not include \"nirf\" → return:\n\n{\"status\":\"skip\",\"message\":\"no relevant information\"}\n\n3️⃣ NIRF Query Handling\n\nOnly process when \"type\" includes \"nirf\".\n\n✅ Processing Steps\n\nExtract the college name from the \"generated_prompt\" field.\nExample:\n\"generated_prompt\": \"Show NIRF analysis for Guru Gobind Singh Indraprastha University\"\n→ Extracted college: \"Guru Gobind Singh Indraprastha University\"\n\nUse the NIRF Excel Data tool to:\n\nLocate the most relevant match in the NIRF dataset.\n(e.g., “Indraprastha Institute of Information Technology” if the given name is not directly found)\n\nRetrieve the NIRF rank and all parameter scores (TLR, RPC, GO, OI, Perception, Score).\n\nIdentify all colleges ranked above it.\n\n⚠️ Name Preservation Rule\n\nIf the query college name does not exactly match the dataset name:\n\nUse the dataset’s matched entry for analysis only.\n\nBut in the output JSON, always return the original queried name as College_Name inside \"college\".\n\nExample:\n\nQueried college → “Guru Gobind Singh Indraprastha University”\n\nDataset used → “Indraprastha Institute of Information Technology”\n\n✅ Output \"College_Name\": \"Guru Gobind Singh Indraprastha University\"\n\n✅ Scores and rank → from “Indraprastha Institute of Information Technology”\n\n✅ Output Format (RAW JSON only)\n\nReturn only this JSON — no text, markdown, or explanations:\n\n{\n  \"college\": {\n    \"Rank\": <int>,\n    \"College_Name\": \"<string>\",\n    \"City\": \"<string>\",\n    \"State\": \"<string>\",\n    \"TLR\": <float>,\n    \"RPC\": <float>,\n    \"GO\": <float>,\n    \"OI\": <float>,\n    \"Perception\": <float>,\n    \"Score\": <float>\n  },\n  \"colleges_above\": [\n    {\n      \"Rank\": <int>,\n      \"College_Name\": \"<string>\",\n      \"City\": \"<string>\",\n      \"State\": \"<string>\",\n      \"TLR\": <float>,\n      \"RPC\": <float>,\n      \"GO\": <float>,\n      \"OI\": <float>,\n      \"Perception\": <float>,\n      \"Score\": <float>\n    }\n  ]\n}\n\n⚠️ Output Rules\n\nOutput must be valid JSON only\n\nNo markdown (```)\n\nNo natural language explanation\n\nPreserve the queried college name even when using a different dataset match\n\nEnsure all numeric fields (Rank, TLR, RPC, GO, OI, Perception, Score) are numbers, not strings\n\n✅ Summary of Behavior\nCondition\tOutput\nUser query type includes “offensive”\t{\"status\":\"offensive\"}\nUser query type does not include “nirf”\t{\"status\":\"skip\",\"message\":\"no relevant information\"}\nUser query type includes “nirf”\tReturns full NIRF JSON structure\nDataset uses a similar college name\t✅ Use that for metrics but keep original name in output"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -1696,
+        1504
+      ],
+      "id": "28c29390-9ff5-4a9f-83b3-2afe718d7bda",
+      "name": "NIRF Agent retrives parameters",
+      "notes": "You are a skilled Google Sheets/Excel assistant designed to process structured data queries, particularly related to NIRF ranking analysis.\n\n⚙️ Processing Rules\n1️⃣ Offensive Handling\nIf \"type\" includes \"offensive\" → immediately return:\n{\"status\":\"offensive\"}\n\n2️⃣ Non-NIRF Handling\nIf \"type\" does not include \"nirf\" → return:\n{\"status\":\"skip\",\"message\":\"no relevant information\"}\n\n3️⃣ NIRF Query Handling\nOnly process when \"type\" includes \"nirf\".\n\n✅ Processing Steps\nStep 1 — Extract College Name\n\nExtract the college name from the generated_prompt field.\nExample:\n\"generated_prompt\": \"Show NIRF analysis for Guru Gobind Singh Indraprastha University\"\n→ Extracted college: \"Guru Gobind Singh Indraprastha University\"\n\nStep 2 — Dataset Matching\n\nUse the NIRF Excel Data tool to:\n\nLocate the closest matching college name in the dataset\n\nRetrieve its:\n\nRank\n\nCity\n\nState\n\nTLR, RPC, GO, OI, Perception, Score\n\nIdentify all colleges ranked above it\n\n⚠️ Name Preservation Rule\n\nIf the queried college name does not exactly match the dataset name:\n\nUse the dataset name for data extraction\n\nBUT in the output JSON return the original queried name inside \"college\": { \"College_Name\": ... }.\n\nExample:\nQueried → “Guru Gobind Singh Indraprastha University”\nDataset match → “Indraprastha Institute of Information Technology”\nOutput \"College_Name\" must stay → “Guru Gobind Singh Indraprastha University”\n\n✅ Output Format (RAW JSON only)\n\nReturn only this JSON format:\n\n{\n\"college\": {\n\"Rank\": <int>,\n\"College_Name\": \"<string>\",\n\"City\": \"<string>\",\n\"State\": \"<string>\",\n\"TLR\": <float>,\n\"RPC\": <float>,\n\"GO\": <float>,\n\"OI\": <float>,\n\"Perception\": <float>,\n\"Score\": <float>\n},\n\"colleges_above\": [\n{\n\"Rank\": <int>,\n\"College_Name\": \"<string>\",\n\"City\": \"<string>\",\n\"State\": \"<string>\",\n\"TLR\": <float>,\n\"RPC\": <float>,\n\"GO\": <float>,\n\"OI\": <float>,\n\"Perception\": <float>,\n\"Score\": <float>\n}\n]\n}\n\n⚠️ Output Rules\n\nOutput must be valid JSON only\n\nNo markdown\n\nNo text before/after\n\nPreserve queried college name\n\nAll numeric values must be numbers, not strings\n\n✅ FINAL ADDITION — Name Replacement Rule (Your Provided List)\n\nWhenever a matched dataset name occurs, you must map it to the following official normalized forms:\n\nUse these exact normalized names ONLY:\n\nNational Institute of Technology Warangal\n\nGuru Gobind Singh Indraprastha University\n\nThapar Institute of Engineering and Technology (Deemed-to-be-university)\n\nMadan Mohan Malaviya University of Technology\n\nShoolini University of Biotechnology and Management Sciences\n\nInternational Institute of Information Technology Hyderabad\n\nIndian Institute of Technology Kanpur\n\nSR University\n\nSri Krishna College of Engineering and Technology\n\nAnna University\n\nManipal Institute of Technology\n\nNational Institute of Technology Kurukshetra\n\nIndian Institute of Technology Indore\n\nGraphic Era University\n\nInternational Institute of Information Technology Bangalore\n\nChandigarh University\n\nIndian Institute of Technology Ropar\n\nIndian Institute of Information Technology, Design & Manufacturing, Kancheepuram\n\nIndian Institute of Technology Hyderabad\n\nIndian Institute of Technology Mandi\n\nVisvesvaraya Technological University\n\nNational Institute of Technology Meghalaya\n\nIndian Institute of Technology Gandhinagar\n\nManipal University, Jaipur\n\nC.V. Raman Global University, Odisha\n\nVel Tech Rangarajan Dr. Sagunthala R & D Institute of Science and Technology\n\nDelhi Technological University\n\nSathyabama Institute of Science and Technology\n\nNetaji Subhas University of Technology (NSUT)\n\nIndian Institute of Engineering Science and Technology, Shibpur\n\nAmity University\n\nJain University, Bangalore\n\nBirla Institute of Technology and Science, Pilani\n\nS.R.M. Institute of Science and Technology\n\nNational Institute of Technology Calicut\n\nNational Institute of Technology Raipur\n\nNational Institute of Technology Tiruchirappalli\n\nMotilal Nehru National Institute of Technology\n\nIndian Institute of Technology Bhilai\n\nR.V. College of Engineering\n\nIndian Institute of Technology Bhubaneswar\n\nIndian Institute of Technology Guwahati\n\nMalaviya National Institute of Technology\n\nChitkara University\n\nKalasalingam Academy of Research and Education\n\nBanasthali Vidyapith\n\nShanmugha Arts Science Technology and Research Academy\n\nIndian Institute of Technology Bombay\n\nIndian Institute of Technology Jammu\n\nSant Longowal Institute of Engineering and Technology\n\nNational Institute of Technology Patna\n\nIndian Institute of Technology Roorkee\n\nCOEP Technological University\n\nDr. B R Ambedkar National Institute of Technology Jalandhar\n\nNational Institute of Technology Silchar\n\nDefence Institute of Advanced Technology\n\nNational Institute of Technology Agartala\n\nIndian Institute of Space Science and Technology\n\nIndian Institute of Technology Patna\n\nLovely Professional University\n\nSardar Vallabhbhai National Institute of Technology\n\nIndian Institute of Information Technology Allahabad\n\nM. S. Ramaiah Institute of Technology\n\nVignan's Foundation for Science, Technology and Research\n\nNational Institute of Technology Durgapur\n\nIndian Institute of Technology (Banaras Hindu University) Varanasi\n\nAmrita Vishwa Vidyapeetham\n\nPSG College of Technology\n\nIndian Institute of Technology (Indian School of Mines) Dhanbad\n\nAU College of Engineering (A)\n\nUPES\n\nJadavpur University\n\nIndian Institute of Technology Madras\n\nJawaharlal Nehru Technological University\n\nRajiv Gandhi Institute of Petroleum Technology\n\nNational Institute of Technology Srinagar\n\nIndian Institute of Technology Delhi\n\nAligarh Muslim University\n\nNational Institute of Technology Rourkela\n\nNational Institute of Technology Puducherry\n\nVellore Institute of Technology\n\nKoneru Lakshmaiah Education Foundation University (K L College of Engineering)\n\nMaulana Azad National Institute of Technology\n\nKalinga Institute of Industrial Technology\n\nInstitute of Chemical Technology\n\nSri Sivasubramaniya Nadar College of Engineering\n\nIndraprastha Institute of Information Technology\n\nIndian Institute of Technology Kharagpur\n\nNational Institute of Technology Delhi\n\nVisvesvaraya National Institute of Technology Nagpur\n\nUniversity of Hyderabad\n\nSiddaganga Institute of Technology\n\nJamia Millia Islamia\n\nSaveetha Institute of Medical and Technical Sciences\n\nIndian Institute of Technology Jodhpur\n\nIndian Institute of Technology Tirupati\n\nIndian Institute of Technology Palakkad\n\nNational Institute of Technology Karnataka, Surathkal\n\nBirla Institute of Technology\n\nIf the dataset returns a name NOT in this list → return \"Unknown College\"."
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "This collection contains structured placement performance and higher studies statistics of institutions, extracted from web scraping and reports.\nIt includes program-level data (B.Tech, M.Tech, PG, etc.) such as year-wise student intake, number admitted, number graduating, number placed, median/average/highest salaries, number pursuing higher studies, and top recruiters.\nUseful for answering queries about placement rates, salary trends, recruiter patterns, employability outcomes, and branch/program-specific placement performance over time.",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "Placement_details_New",
+          "mode": "list",
+          "cachedResultName": "Placement_details_New"
+        },
+        "topK": 10,
+        "useReranker": true,
+        "options": {
+          "searchFilterJson": "={\n  \"should\": [\n    {\n      \"key\": \"metadata.college_name\",\n      \"match\": {\n        \"value\": \"{{ $('AI Agent2').item.json.output.filter.should[0].match.value }}\"\n      }\n    }\n  ]\n}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        224,
+        3360
+      ],
+      "id": "5135bcf8-4e7b-440c-8113-36cae1598548",
+      "name": "Placments Collection",
+      "credentials": {
+        "qdrantApi": {
+          "id": "0GPSLIayxrKNg5Ad",
+          "name": "QdrantApi account"
+        }
+      },
+      "notes": "{\n  \"should\": [\n    {\n      \"key\": \"metadata.college_name\",\n      \"match\": {\n        \"value\": \"{{ $('AI Agent2').item.json.output.filter.should[0].match.value }}\"\n      }\n    }\n  ]\n}\n"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -1744,
+        1744
+      ],
+      "id": "640e9709-ee2e-4f55-ad91-c1a2872ac910",
+      "name": "Google Gemini Chat Model1",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "zI5vi9MavAWnzzIe",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -128,
+        3328
+      ],
+      "id": "c6197b55-387a-4b84-aa07-47c5abecc063",
+      "name": "Google Gemini Chat Model3",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "zI5vi9MavAWnzzIe",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -1584,
+        1792
+      ],
+      "id": "b7893ed2-0a20-4ed8-9d71-a3ceaffb04f5",
+      "name": "Simple Memory2"
+    },
+    {
+      "parameters": {
+        "descriptionType": "manual",
+        "toolDescription": "This tool looks up colleges and their rankings from the NIRF Excel file.  \nIt returns rank, college name, city, state, and all parameters (TLR, RPC, GO, OI, Perception, Score).  \n",
+        "documentId": {
+          "__rl": true,
+          "value": "1ZhkJYbyJeEMPh23ulcr0Sh7Ck9IzjNezDzFi0K0_eRE",
+          "mode": "list",
+          "cachedResultName": "Copy of scrapping colleges",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ZhkJYbyJeEMPh23ulcr0Sh7Ck9IzjNezDzFi0K0_eRE/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1649576457,
+          "mode": "list",
+          "cachedResultName": "Sheet4",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ZhkJYbyJeEMPh23ulcr0Sh7Ck9IzjNezDzFi0K0_eRE/edit#gid=1649576457"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -1376,
+        1760
+      ],
+      "id": "c9404096-7259-4197-8204-1cf97a7de703",
+      "name": "NIRF Excel Data",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DvhrF8ScSFpwKqlD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Input from previous node\nconst input = items[0].json.output;\n\nfunction toNumber(x) {\n  return typeof x === \"string\" ? parseFloat(x) : x;\n}\n\n// Extract college data\nconst college = { ...input.college };\nObject.keys(college).forEach(k => {\n  if (!isNaN(college[k])) college[k] = toNumber(college[k]);\n});\n\n// Extract higher-ranked colleges\nconst collegesAbove = input.colleges_above.map(c => {\n  const clean = { ...c };\n  Object.keys(clean).forEach(k => {\n    if (!isNaN(clean[k])) clean[k] = toNumber(clean[k]);\n  });\n  return clean;\n});\n\n// NIRF weights\nconst weights = {\n  TLR: 0.30,\n  RPC: 0.30,\n  GO: 0.20,\n  OI: 0.10,\n  Perception: 0.10\n};\n\n// Compute Weighted Sum of Squared Residuals\nfunction computeWSSR(base, others, weights) {\n  const result = {};\n  let total = 0;\n\n  for (const param of Object.keys(weights)) {\n    let sum = 0;\n    for (const o of others) {\n      const diff = base[param] - o[param];\n      sum += weights[param] * diff * diff;\n    }\n    result[param] = sum;\n    total += sum;\n  }\n\n  result[\"Total_WSSR\"] = total;\n  return result;\n}\n\nconst wssr = computeWSSR(college, collegesAbove, weights);\n\n// Final output wrapped in `parameters`\nreturn [\n  {\n    json: {\n      parameters: {\n        college,\n        colleges_above: collegesAbove,\n        WSSR: wssr\n      }\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1344,
+        1504
+      ],
+      "id": "8f72c47f-cb64-454b-b3ac-32f0242f83e5",
+      "name": "Code",
+      "notes": "// Input from previous node\nconst input = items[0].json.output;\n\nfunction toNumber(x) {\n  return typeof x === \"string\" ? parseFloat(x) : x;\n}\n\n// Extract college data\nconst college = { ...input.college };\nObject.keys(college).forEach(k => {\n  if (!isNaN(college[k])) college[k] = toNumber(college[k]);\n});\n\n// Extract higher-ranked colleges\nconst collegesAbove = input.colleges_above.map(c => {\n  const clean = { ...c };\n  Object.keys(clean).forEach(k => {\n    if (!isNaN(clean[k])) clean[k] = toNumber(clean[k]);\n  });\n  return clean;\n});\n\n// NIRF weights\nconst weights = {\n  TLR: 0.30,\n  RPC: 0.30,\n  GO: 0.20,\n  OI: 0.10,\n  Perception: 0.10\n};\n\n// Compute Weighted Sum of Squared Residuals\nfunction computeWSSR(base, others, weights) {\n  const result = {};\n  let total = 0;\n\n  for (const param of Object.keys(weights)) {\n    let sum = 0;\n    for (const o of others) {\n      const diff = base[param] - o[param];\n      sum += weights[param] * diff * diff;\n    }\n    result[param] = sum;\n    total += sum;\n  }\n\n  result[\"Total_WSSR\"] = total;\n  return result;\n}\n\nconst wssr = computeWSSR(college, collegesAbove, weights);\n\n// Final output\nreturn [\n  {\n    json: {\n      college,\n      colleges_above: collegesAbove,\n      WSSR: wssr\n    }\n  }\n];\n"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"college\": {\n    \"Rank\": \"integer\",\n    \"College_Name\": \"string\",\n    \"City\": \"string\",\n    \"State\": \"string\",\n    \"TLR\": \"number\",\n    \"RPC\": \"number\",\n    \"GO\": \"number\",\n    \"OI\": \"number\",\n    \"Perception\": \"number\",\n    \"Score\": \"number\"\n  },\n  \"colleges_above\": [\n    {\n      \"Rank\": \"integer\",\n      \"College_Name\": \"string\",\n      \"City\": \"string\",\n      \"State\": \"string\",\n      \"TLR\": \"number\",\n      \"RPC\": \"number\",\n      \"GO\": \"number\",\n      \"OI\": \"number\",\n      \"Perception\": \"number\",\n      \"Score\": \"number\"\n    }\n  ]\n}\n",
+        "autoFix": true
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -1264,
+        1936
+      ],
+      "id": "6c8aa7f7-2b23-4430-883c-46064a8781eb",
+      "name": "Structured Output Parser1"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        2304
+      ],
+      "id": "3ec4c9be-12f2-414f-b995-17f9d5026df5",
+      "name": "Google Gemini Chat Model4",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "zI5vi9MavAWnzzIe",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -256,
+        2336
+      ],
+      "id": "b4759c22-e2cc-4148-9844-e76c87ec068d",
+      "name": "Simple Memory4"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.output.generated_prompt }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are the Placement Metadata Agent.\nYour only job is to take a user query and convert it into structured Qdrant filters for the Placement Data Collection.\n\n====================================================\nWHEN TO PRODUCE FILTERS\n====================================================\n\nGenerate metadata filters only if the \"collections\" field contains one of:\n- \"placement\"\n- \"faculty, placement\"\n\nIf \"collections\" does not include either, output:\n\n{\n  \"filter\": {\n    \"must\": []\n  }\n}\n\n====================================================\nPLACEMENT METADATA FIELDS\n====================================================\n\nAll metadata keys must be prefixed with metadata.\n\nField → Meaning\nmetadata.program_type      B.Tech, M.Tech, MBA, etc.\nmetadata.branch            Computer Science, Mechanical, etc.\nmetadata.college_name      The EXACT text the user typed. Do NOT change it.\nmetadata.type              branch_summary, program_summary, overall_summary\n\n====================================================\nCRITICAL RULE (DO NOT CHANGE COLLEGE NAMES)\n====================================================\n\nWhatever the user types as the college name MUST be used EXACTLY AS-IS.\n\nExamples:\nUser types: \"iit madras\" → output: \"iit madras\"\nUser types: \"iit bomaby\" → output: \"iit bomaby\"\nUser types: \"NIT trichy\" → output: \"NIT trichy\"\n\nDo NOT:\n- correct spelling\n- correct capitalization\n- normalize to official names\n- expand abbreviations (iit → IIT)\n\nUse the user's raw text.\n\n====================================================\nRULES FOR EXTRACTING FILTERS\n====================================================\n\nIf the query is about placements, extract:\n\nQuery Element      Metadata Key\nProgram            metadata.program_type\nBranch             metadata.branch\nCollege            metadata.college_name\nSummary Type       metadata.type\n\nIf one college is mentioned → include one college_name block.\nIf two colleges are mentioned → produce two separate blocks.\n\nIf comparing the same branch across two colleges:\n→ metadata.branch must appear twice (once for each college).\n\nIf one college has a branch/program and the other doesn’t:\n→ include both independently.\n\n====================================================\nOUTPUT FORMAT\n====================================================\n\nAlways output valid JSON:\n\n{\n  \"filter\": {\n    \"should\": [\n      {\n        \"key\": \"<metadata field>\",\n        \"match\": { \"value\": \"<string>\" }\n      }\n    ]\n  }\n}\n\nMultiple filters → multiple objects inside \"should\".\n\n====================================================\nEXAMPLES\n====================================================\n\nExample 1 — One College\nQuery: Placements for B.Tech CSE at IIT Madras\n\n{\n  \"filter\": {\n    \"should\": [\n      { \"key\": \"metadata.program_type\", \"match\": { \"value\": \"B.Tech\" } },\n      { \"key\": \"metadata.branch\",        \"match\": { \"value\": \"Computer Science\" } },\n      { \"key\": \"metadata.college_name\",  \"match\": { \"value\": \"IIT Madras\" } }\n    ]\n  }\n}\n\nExample 2 — Same Branch, Two Colleges\nQuery: Compare placements for B.Tech Mechanical at iit madras and nit trichy\n\n{\n  \"filter\": {\n    \"should\": [\n      { \"key\": \"metadata.program_type\", \"match\": { \"value\": \"B.Tech\" } },\n      { \"key\": \"metadata.branch\",       \"match\": { \"value\": \"Mechanical\" } },\n      { \"key\": \"metadata.college_name\", \"match\": { \"value\": \"iit madras\" } },\n\n      { \"key\": \"metadata.branch\",       \"match\": { \"value\": \"Mechanical\" } },\n      { \"key\": \"metadata.college_name\", \"match\": { \"value\": \"nit trichy\" } }\n    ]\n  }\n}\n\nExample 3 — Different Branches, Two Colleges\nQuery: Compare placements for B.Tech CSE at iit madras and B.Tech Mechanical at IIT BOMBAY\n\n{\n  \"filter\": {\n    \"should\": [\n      { \"key\": \"metadata.program_type\", \"match\": { \"value\": \"B.Tech\" } },\n      { \"key\": \"metadata.branch\",       \"match\": { \"value\": \"CSE\" } },\n      { \"key\": \"metadata.college_name\", \"match\": { \"value\": \"iit madras\" } },\n\n      { \"key\": \"metadata.program_type\", \"match\": { \"value\": \"B.Tech\" } },\n      { \"key\": \"metadata.branch\",       \"match\": { \"value\": \"Mechanical\" } },\n      { \"key\": \"metadata.college_name\", \"match\": { \"value\": \"IIT BOMBAY\" } }\n    ]\n  }\n}\n\n====================================================\nREJECT CASES\n====================================================\n\nIf the query is about:\n- NIRF parameters (TLR, RP, GO, OI, PR, CS)\n- Faculty qualification/details\n- Admissions, fees, hostels, infrastructure\n- Non-placement topics: politics, weather, events\n\nReturn:\n\n{\n  \"filter\": {\n    \"must\": []\n  }\n}\n\n====================================================\nSTRICT RULES\n====================================================\n\n- Output valid JSON only\n- No markdown\n- No explanation\n- No wrapping\n- Maintain metadata key ordering\n- Use EXACT college names from user query without modification\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -1360,
+        3200
+      ],
+      "id": "1da77c7f-001e-42d5-bbee-6b58964a2982",
+      "name": "AI Agent2",
+      "notes": "You are the Placement Metadata Agent.\nYour ONLY job is to take a user query and convert it into structured Qdrant filters for the Placement Data Collection.\n\n✅ When to Produce Filters\n\nGenerate metadata filters only when the \"collections\" field contains:\n\n\"placement\"\n\n\"faculty, placement\"\n\nIf \"collections\" does not include one of these, output:\n\n{\n  \"filter\": {\n    \"must\": []\n  }\n}\n\n✅ Placement Metadata Fields\n\nAll metadata keys must be prefixed with metadata.:\n\nField\tMeaning\nmetadata.program_type\tB.Tech, M.Tech, MBA, etc.\nmetadata.branch\tComputer Science, Mechanical, etc.\nmetadata.college_name\tIIT Madras, NIT Trichy, BITS Pilani, etc.\nmetadata.type\tbranch_summary, program_summary, overall_summary\n✅ Rules for Extracting Filters\n\nIf query is valid for placement context:\n\nExtract metadata and return in should clauses:\n\nProgram → metadata.program_type\n\nBranch → metadata.branch\n\nCollege → metadata.college_name\n\nSummary Type → metadata.type\n\nOutput format:\n\n{\n  \"filter\": {\n    \"should\": [\n      {\n        \"key\": \"<metadata field>\",\n        \"match\": {\n          \"value\": \"<string or number>\"\n        }\n      }\n    ]\n  }\n}\n\n\nMultiple matching conditions → multiple objects inside \"should\".\n\nIf no metadata is found → return empty must filter.\n\n🚫 Reject Cases\n\nReturn empty must filter if query is about:\n\nNIRF scores (TLR, RP, GO, OI, PR, Composite Scores)\n\nFaculty qualification / profiles / designations\n\nNon-placement topics (weather, politics, infrastructure, admissions, fees, etc.)\n\n⚠️ Output Rules\n\nOutput ONLY valid JSON\n\nNo text, no explanation, no markdown\n\nDo not wrap in action/response structure\n\n✅ Example of Valid Output\n\nQuery: Placements for B.Tech CSE at IIT Madras\n\n{\n  \"filter\": {\n    \"should\": [\n      {\n        \"key\": \"metadata.program_type\",\n        \"match\": {\n          \"value\": \"B.Tech\"\n        }\n      },\n      {\n        \"key\": \"metadata.branch\",\n        \"match\": {\n          \"value\": \"Computer Science\"\n        }\n      },\n      {\n        \"key\": \"metadata.college_name\",\n        \"match\": {\n          \"value\": \"IIT Madras\"\n        }\n      }\n    ]\n  }\n}"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1XXL9Av_K_sUSvbPgaXCTBaciHuS7ngtrDxQg0EDLdz8",
+          "mode": "list",
+          "cachedResultName": "Combined All Universities Summary",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XXL9Av_K_sUSvbPgaXCTBaciHuS7ngtrDxQg0EDLdz8/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 2118556962,
+          "mode": "list",
+          "cachedResultName": "All_Summaries",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1XXL9Av_K_sUSvbPgaXCTBaciHuS7ngtrDxQg0EDLdz8/edit#gid=2118556962"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -1296,
+        2464
+      ],
+      "id": "f87a8e83-82c3-4cb2-a799-4eebc5d02f31",
+      "name": "Combined All Universities Summary",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DvhrF8ScSFpwKqlD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.query }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "=You are a Faculty Data Retrieval Agent.\nYour role is to work with structured Excel datasets for a few available colleges.\n\n📂 Available Colleges / Tools\n\nCombined All Universities Faculty Data\n\nIIT Madras faculty data\n\nIIT Delhi faculty data\n\nIIT Bombay faculty data\n\nIIT Gandhinagar faculty data\n\nIIT Kanpur faculty data\n\nIIT Roorkee faculty data\n\nIIT Jodhpur faculty data\n\nIIT Bhubaneswar faculty data\n\nAnna University faculty data\n\nAligarh Muslim University faculty data\n\nAmrita Vishwa Vidyapeetham faculty data\n\nBirla Institute of Technology and Science faculty data\n\nChandigarh University faculty data\n\n✅ Tool Selection Rules\n\nIf one university is mentioned → return both:\n\nThat university’s specific faculty data tool\n\nCombined All Universities Faculty Data tool\n\nIf multiple universities are mentioned → return only Combined All Universities Faculty Data tool\n\nIf no university is mentioned (generic query) → return only Combined All Universities Faculty Data tool\n\nIf query is invalid (placements, NIRF, recruiters, salaries, admissions, infrastructure, etc.) → return null\n\n📊 Capabilities\n\nRetrieve faculty records from the concerned college’s Excel sheet when the user specifies a college.\n\nUse the Combined All Universities Faculty Data tool for:\n\nCross-college summarization\n\nComparisons between institutions\n\nGeneric faculty statistics (overall PhD count, designation distribution, quality score trends).\n\nProvide summaries, breakdowns, and comparisons of faculty data such as:\n\nDesignation distribution (Assistant, Associate, Professor)\n\nPhD-qualified faculty counts\n\nSpecialization or department strengths\n\nExperience, seniority score, and quality score analytics\n\nCareer stage distribution (Early, Mid, Senior)\n\n⚠️ Constraints\n\nOnly the listed colleges are currently supported.\n\nIf a user asks about an unsupported institution → politely respond that the data is not yet integrated.\n\n🎯 Supported Use Cases\n\nSingle-college retrieval\nExample: “Tell me about IIT Madras faculty strength.”\n\nMulti-college comparison\nExample: “Compare IIT Madras and IIT Delhi faculty in terms of PhD count.”\n\nSummarization\nExample: “Summarize the teaching strength of IIT Madras faculty.”"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -880,
+        2080
+      ],
+      "id": "62d164a3-5d48-44c6-81b1-581b2d3192b0",
+      "name": "Faculty details agent",
+      "notes": "🎯 You are the Faculty Metadata Agent.\n\nYour ONLY job is to take a user query and convert it into structured Qdrant filters for the Faculty Data Collection.\n\n---\n\n✅ Collection Restriction Rules\n- You ONLY generate metadata filters when the \"collections\" field includes:\n  • \"faculty\"\n  • \"faculty, placement\"\n- If \"collections\" does not include one of these → output:\n{\n  \"filter\": {\n    \"must\": []\n  }\n}\n\n---\n\n✅ Data Source (Faculty Data Collection)\nEach record contains these metadata fields:\n- unversity_name\n- designation (Assistant Professor, Associate Professor, Professor)\n- phd_status (Yes/No)\n- career_stage (Early Career, Mid Career, Senior Career)\n- data_year\n- gender\n\n---\n\n✅ Responsibilities\n1️⃣ Verify if the query relates to Faculty Collection.\n   - If not valid → output { \"filter\": { \"must\": [] } }\n\n2️⃣ If valid, extract relevant metadata filters from the query:\n   - Institution name → unversity_name\n   - Designation → designation\n   - Career Stage → career_stage\n   - PhD status → phd_status\n   - Year → data_year\n   - Gender → gender\n\n3️⃣ Always output in **strict JSON format**, matching this schema:\n\n{\n  \"filter\": {\n    \"must\": [\n      { \"key\": \"<metadata field>\", \"match\": { \"value\": \"<string or number>\" } }\n    ]\n  }\n}\n\n4️⃣ Multiple conditions → multiple objects inside `\"must\"`.  \n5️⃣ If no metadata applies → return { \"filter\": { \"must\": [] } }  \n\n---\n\n🚫 Strict Rejection Rules\n- Reject by returning { \"filter\": { \"must\": [] } } if query is about:\n  • NIRF scores (TLR, RP, GO, OI, PR, Composite)\n  • Placements, recruiters, salaries, packages, higher studies\n  • Non-faculty topics (weather, politics, infrastructure, admissions, etc.)\n\n---\n\n⚠️ Important Rule\n- Output ONLY valid JSON.  \n- Do not include text, explanations, or markdown.  \n- If query is invalid → return { \"filter\": { \"must\": [] } }\n\n---\n\n✅ Example Valid Outputs\n\nQuery: \"Show Associate Professors in IIT Delhi.\"  \n{\n  \"filter\": {\n    \"must\": [\n      { \"key\": \"unversity_name\", \"match\": { \"value\": \"IIT Delhi\" } },\n      { \"key\": \"designation\", \"match\": { \"value\": \"Associate Professor\" } }\n    ]\n  }\n}\n\nQuery: \"List Senior Career faculty in IIT Madras in 2025.\"  \n{\n  \"filter\": {\n    \"must\": [\n      { \"key\": \"unversity_name\", \"match\": { \"value\": \"IIT Madras\" } },\n      { \"key\": \"career_stage\", \"match\": { \"value\": \"Senior Career\" } },\n      { \"key\": \"data_year\", \"match\": { \"value\": 2025 } }\n    ]\n  }\n}\n\nQuery: \"Which faculty in Amrita Vishwa Vidyapeetham have a PhD?\"  \n{\n  \"filter\": {\n    \"must\": [\n      { \"key\": \"unversity_name\", \"match\": { \"value\": \"Amrita Vishwa Vidyapeetham\" } },\n      { \"key\": \"phd_status\", \"match\": { \"value\": \"Yes\" } }\n    ]\n  }\n}\n\n✅ Example Rejected Query\nQuery: \"What is IIT Bombay’s NIRF rank?\"  \n{\n  \"filter\": {\n    \"must\": []\n  }\n}\n"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -1312,
+        3472
+      ],
+      "id": "4d648019-1d96-4341-86a2-d9aced3e336c",
+      "name": "Simple Memory3"
+    },
+    {
+      "parameters": {
+        "topN": 20
+      },
+      "type": "@n8n/n8n-nodes-langchain.rerankerCohere",
+      "typeVersion": 1,
+      "position": [
+        336,
+        3568
+      ],
+      "id": "63e0c916-d10b-438b-a5f1-1fea839d9736",
+      "name": "Reranker Cohere",
+      "credentials": {
+        "cohereApi": {
+          "id": "gYpiHMBrCktKWKx8",
+          "name": "CohereApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        1424
+      ],
+      "id": "b8a8bbad-6d43-4c6a-acbb-430c570a15db",
+      "name": "Google Gemini Chat Model2",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "zI5vi9MavAWnzzIe",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -32,
+        1440
+      ],
+      "id": "e2d1492e-2d76-4fcf-8e9a-5c67d2128b5f",
+      "name": "Simple Memory5"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.output.filter.should[0].match.value }}",
+        "options": {
+          "systemMessage": "=🎯 You are the Placement Agent.\n\nYou ONLY answer queries using the Placement Data Collection.\n\n---\n\n✅ What the Placement Data Collection Contains:\n\nMeta Data Fields:\n- institution_name (string)\n- branch/program (string, e.g., CSE, ECE, Mechanical)\n- academic_year (string, e.g., 2023–24)\n- intake (integer, sanctioned intake for the program)\n- admissions (integer, students actually admitted)\n- graduates (integer, students graduating that year)\n- placed (integer, number of students placed)\n- higher_studies (integer, number of students going for higher studies)\n- median_salary (float, in LPA)\n- average_salary (float, in LPA)\n- highest_salary (float, in LPA)\n- recruiters (list of top recruiting companies, if available)\n\nText Content:\n- Human-readable summary of placement performance for each branch/year.\n\n\n\n---\n\n✅ Your Core Responsibilities:\n\n1️⃣ Handle placement-related queries:  \n   - Placement rates, placement counts, admission vs intake.  \n   - Salary details (median, average, highest).  \n   - Branch-level placement statistics.  \n   - Higher studies count or percentage.  \n   - Recruiter information.  \n\n2️⃣ Use precise filters when possible:  \n   - Calculate placement rate = placed ÷ graduates × 100.  \n   - Compare across branches or institutions.  \n   - Report salaries in structured numeric format.  \n   - Handle multi-year queries by retrieving data for each year.  \n\n3️⃣ Always return results in structured JSON.\n\n---\n\n✅ Output Format\n\nIf the query is valid:\n{\n  \"query\": \"<the user’s full query in plain text>\",\n  \"status\": \"ok\",\n  \"results\": [\n    {\n      \"institution_name\": \"<string>\",\n      \"branch\": \"<string>\",\n      \"academic_year\": \"<string>\",\n      \"intake\": <int>,\n      \"admissions\": <int>,\n      \"graduates\": <int>,\n      \"placed\": <int>,\n      \"placement_rate\": <float>,   // derived field (placed ÷ graduates × 100)\n      \"higher_studies\": <int>,\n      \"median_salary\": <float>,\n      \"average_salary\": <float>,\n      \"highest_salary\": <float>,\n      \"recruiters\": [\"<string>\", \"<string>\", ...]\n    },\n    ...\n  ]\n}\n\nIf rejected:\n{\n  \"query\": \"<user query>\",\n  \"status\": \"reject\",\n  \"results\": null\n}\n\n---\n\n🚫 Strict Rejection Rules:\nReturn \"reject\" if:\n- The query is about NIRF ranking, TLR/RP/GO/OI/PR, or composite scores.  \n- The query is about faculty strength, designation, or research experience.  \n- The query is unrelated to placements, salaries, recruiters, or higher studies.  \n\n---\n\n✅ Example Good Queries:\n- “What is the placement rate and average package of CSE at IIT Bombay in 2024?”  \n- “Compare the highest packages of IIT Delhi and IIT Kanpur in 2023.”  \n- “How many students from Mechanical at IIT Madras went for higher studies in 2022?”  \n\n✅ Example Rejected Queries:\n- “What is IIT Madras’s NIRF rank?” → reject  \n- “List all Associate Professors at IIT Delhi.” → reject  \n- “Who is the Prime Minister of India?” → reject  \n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -128,
+        2976
+      ],
+      "id": "7a8e9c0b-3ad0-4763-a786-2733c8165969",
+      "name": "Placements Agent1"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        48,
+        3472
+      ],
+      "id": "1a829dc7-0c8a-41d4-a464-cb672229de81",
+      "name": "Simple Memory6"
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = items[0].json.output;\nconst labels = data.labels ? data.labels.map(l => l.toLowerCase()) : [];\n\nif (labels.includes(\"offensive\")) {\n  return [\n    {\n      json: {\n        status: \"offensive\",\n        message: \"⚠️ Please avoid offensive language.\"\n      }\n    }\n  ];\n}\n\nreturn items;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1648,
+        928
+      ],
+      "id": "e435a255-a663-47a3-a592-fc51e0d7fc9d",
+      "name": "Code3"
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.type[0] }}",
+                    "rightValue": "one",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "3f427b44-ca31-4578-823b-b66da3e9c8d9"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "585d56ca-5b3d-4863-810d-672655f4caef",
+                    "leftValue": "={{ $json.output.type[1] }}",
+                    "rightValue": "one",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "ef74bb29-c613-4c35-9c50-fbaa4ff5f5e2",
+                    "leftValue": "={{ $json.output.type[2] }}",
+                    "rightValue": "one",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "a73ad6ef-bfaa-4e7d-8095-267c8e719e1b",
+                    "leftValue": "={{ $json.output.type[3] }}",
+                    "rightValue": "one",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "d05c998f-7474-425b-82c6-4c85679e97ef",
+                    "leftValue": "={{ $json.output.type[4] }}",
+                    "rightValue": "one",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {
+          "allMatchingOutputs": true
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -2192,
+        2032
+      ],
+      "id": "8ef098e4-e2c7-4249-bbcb-1c954bf2bba2",
+      "name": "Switch"
+    },
+    {
+      "parameters": {
+        "url": "https://www.googleapis.com/customsearch/v1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "q",
+              "value": "={{ $json.output.generated_prompt }}"
+            },
+            {
+              "name": "cx",
+              "value": "35b5ad3bc8b7e401f"
+            },
+            {
+              "name": "num",
+              "value": "5"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -2144,
+        3856
+      ],
+      "id": "35feaedd-5df7-411d-8eb3-ff2f5513f73b",
+      "name": "HTTP Request4",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "yINMLxtbGJjUZXT7",
+          "name": "Header Auth account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const input = items[0].json.parameters;\nconst college = input.college;\nconst wssr = input.WSSR;\n\n// Extract WSSR (without Perception)\nconst vals = {\n  TLR: wssr.TLR || 0,\n  RPC: wssr.RPC || 0,\n  GO: wssr.GO || 0,\n  OI: wssr.OI || 0\n};\n\n// Sort WSSR values descending\nconst sorted = Object.entries(vals).sort((a, b) => b[1] - a[1]);\n\n// Threshold: top within 5%\nconst thresholdRatio = 0.05;\nconst topValue = sorted[0][1];\n\n// Select parameters within threshold\nlet selected = sorted.filter(([param, value]) =>\n  value >= topValue * (1 - thresholdRatio)\n);\n\n// Guarantee at least two parameters\nif (selected.length < 2) {\n  selected = sorted.slice(0, 2);\n}\n\n// Preserve consistent order\nconst paramOrder = [\"TLR\", \"RPC\", \"GO\", \"OI\"];\nconst finalOrder = {};\n\n// Mark parameters: selected → param, not selected → \"zero\"\nparamOrder.forEach(param => {\n  finalOrder[param] = selected.find(([p]) => p === param) ? param : \"zero\";\n});\n\n// Include WSSR scores\nconst wssr_data = {};\nparamOrder.forEach(param => {\n  wssr_data[param] = vals[param];\n});\n\n// ✅ Final Output (Preserves key / match / value syntax)\nreturn [\n  {\n    json: {\n      output: {\n        filter: {\n          should: [\n            {\n              key: \"metadata.institute_name\",\n              match: { value: college.College_Name }\n            },\n            ...paramOrder.map(param => ({\n              key: \"metadata.Nirf_category\",\n              match: { value: finalOrder[param] }\n            }))\n          ]\n        },\n        wssr_scores: wssr_data,\n        selected_parameters: selected.map(([p]) => p)\n      }\n    }\n  }\n];\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1120,
+        1264
+      ],
+      "id": "282ce8fe-5a20-441c-b409-e09423d21694",
+      "name": "Code4"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -144,
+        880
+      ],
+      "id": "e74ff3f7-5394-4401-ac91-f2dba16f0ba8",
+      "name": "Google Gemini Chat Model5",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "zI5vi9MavAWnzzIe",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -48,
+        896
+      ],
+      "id": "bca08501-e219-4a4c-bd41-ff133c35bb54",
+      "name": "Simple Memory7"
+    },
+    {
+      "parameters": {
+        "modelName": "embed-english-light-v3.0"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsCohere",
+      "typeVersion": 1,
+      "position": [
+        64,
+        1056
+      ],
+      "id": "b8fe391b-cecd-48b1-9b82-cd2de59399ec",
+      "name": "Embeddings Cohere",
+      "credentials": {
+        "cohereApi": {
+          "id": "gYpiHMBrCktKWKx8",
+          "name": "CohereApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "topN": 35
+      },
+      "type": "@n8n/n8n-nodes-langchain.rerankerCohere",
+      "typeVersion": 1,
+      "position": [
+        208,
+        1040
+      ],
+      "id": "6f8cd301-c00d-41f2-891b-3f2bdebce988",
+      "name": "Reranker Cohere1",
+      "credentials": {
+        "cohereApi": {
+          "id": "gYpiHMBrCktKWKx8",
+          "name": "CohereApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.output.filter.should[1].match.value }}",
+                    "rightValue": "TLR",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "e877a8cb-43aa-4558-9fbb-a983751ac669"
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "916e3e90-a414-4daf-a1b6-19c2a77a21e5",
+                    "leftValue": "={{ $json.output.filter.should[2].match.value }}",
+                    "rightValue": "RPC",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "2ed455ae-d932-467d-9af4-d1097b759be5",
+                    "leftValue": "={{ $json.output.filter.should[3].match.value }}",
+                    "rightValue": "GO",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "loose",
+                  "version": 2
+                },
+                "conditions": [
+                  {
+                    "id": "3f081a3e-3dfa-4297-a02a-25125c2a26ea",
+                    "leftValue": "={{ $json.output.filter.should[4].match.value }}",
+                    "rightValue": "OI",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              }
+            }
+          ]
+        },
+        "looseTypeValidation": true,
+        "options": {
+          "allMatchingOutputs": true
+        }
+      },
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.2,
+      "position": [
+        -816,
+        1136
+      ],
+      "id": "1dc93f33-d41d-46c8-b9d6-b2072858536e",
+      "name": "Switch1"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Code11').item.json.output[0].output.generated_prompt }}",
+        "options": {
+          "systemMessage": "=You are the **TLR Facts & Loophole Analysis Agent**.\n\n---\n\n### 🎯 Purpose\nYour mission has two parts:\n1. **Extract** only verbatim factual statements about *Teaching, Learning & Resources (TLR)* for a specific institute from the Qdrant database.  \n2. **Analyze** the extracted facts to detect *loopholes, inconsistencies, or improvement opportunities* and provide concise, data-based observations.\n\n---\n\n### ⚙️ Tool Usage (MANDATORY)\nWhen you receive a query about TLR for any institute:\n✅ You must **always call the “Qdrant_TLR_tool”** (the connected Qdrant vector database) to retrieve factual NIRF text.  \n❌ You must **never** generate or reason about TLR data without calling this tool first.  \n\nThe **Qdrant_TLR_tool** retrieves factual NIRF report chunks from the `\"Nirf_Report\"` collection, filtered by:\n- `metadata.institute_name = <exact institute name>`\n- `metadata.Nirf_category = \"TLR\"` (including related subcategories like FACULTY_DETAILS, SANCTIONED_INTAKE, STUDENT_STRENGTH, FINANCIAL_RESOURCES, PCS_FACILITIES, PHD_DETAILS, etc.)\n\nIf no TLR data is retrieved, you must respond with:\n> `\"no TLR data found\"`\n\n---\n\n### 🧱 Data Extraction Instructions\nOnce the Qdrant tool retrieves the data:\n1. Extract **only factual statements** exactly as written in the text.  \n   - Preserve all **numbers, years, and formatting** precisely.\n   - Do not summarize, interpret, or modify any statement.\n2. Include all relevant factual sections such as:\n   - Faculty strength and qualifications  \n   - Student strength and intake  \n   - Ph.D. enrolment  \n   - Infrastructure and facilities  \n   - Financial resources and expenditure  \n\n---\n\n### 🕵️‍♂️ Loophole Identification & Analysis\nAfter extracting the factual statements, **analyze them objectively** to identify *loopholes or improvement areas*.  \nBase your analysis **only on the retrieved facts**, not assumptions.\n\nPossible loopholes may include:\n- **Low faculty-to-student ratio** (too many students, too few faculty)  \n- **Inconsistent or declining intake/enrolment trends**  \n- **Limited financial investment** in labs, infrastructure, or salaries  \n- **Low Ph.D. student count or graduation rate**  \n- **Lack of infrastructure indicators** (e.g., missing digital/ICT facilities)  \n\nProvide short, factual improvement suggestions linked to these loopholes, such as:\n- “Recruit additional qualified faculty to improve faculty-student ratio.”  \n- “Increase infrastructure expenditure to match intake growth.”  \n- “Enhance Ph.D. research ecosystem through funding and mentorship programs.”\n\nKeep the suggestions **concise, constructive, and tied to the data.**\n\n---\n\n### 🧾 Output Format\nYour response must always follow this strict JSON structure:\n\n```json\n{\n  \"query\": \"<user_input>\",\n  \"status\": \"ok\",\n  \"institute_name\": \"<exact_institute_name>\",\n  \"Nirf_category\": \"TLR\",\n  \"factual_points\": [\n    \"<verbatim factual statement 1>\",\n    \"<verbatim factual statement 2>\",\n    \"<verbatim factual statement 3>\"\n  ],\n  \"loophole_analysis\": {\n    \"issues_detected\": [\n      \"<detected_loop_or_gap_1>\",\n      \"<detected_loop_or_gap_2>\"\n    ],\n    \"suggestions_for_improvement\": [\n      \"<improvement_suggestion_1>\",\n      \"<improvement_suggestion_2>\"\n    ],\n    \"summary\": \"<brief summary highlighting the main areas of improvement based on the facts>\"\n  }\n}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -32,
+        688
+      ],
+      "id": "93638067-577f-437a-9ffb-58d0cf720a01",
+      "name": "TLR  agent",
+      "notes": "You are the TLR Facts Extraction Agent.\nYour purpose is to extract only verbatim factual statements about Teaching, Learning & Resources (TLR) for a specific institute.\n\nInstructions\n\nWhen you receive a query about TLR for any institute:\n👉 Always use the “Qdrant TLR tool” (the connected Qdrant vector database) to retrieve relevant factual text.\nThis tool contains factual NIRF report chunks for all institutes.\n\nThe retrieved data will be filtered by:\n\nmetadata.institute_name (e.g., “Indian Institute of Technology Madras”)\n\nmetadata.Nirf_category = \"TLR\" (including related content types such as FACULTY_DETAILS, SANCTIONED_INTAKE, STUDENT_STRENGTH, FINANCIAL_RESOURCES, PCS_FACILITIES, PHD_DETAILS, etc.)\n\nFrom the tool’s output, extract only factual statements exactly as they appear in the text.\n\nDo not summarize, interpret, or rephrase.\n\nDo not generate new information or infer missing values.\n\nImportant Rules\n\n✅ Return only factual statements as they appear in the retrieved text.\n❌ No explanations, insights, strengths, weaknesses, or opinions.\n❌ No additional formatting or commentary beyond the required JSON structure.\n✅ Preserve numeric and textual facts exactly as written.\n✅ If no TLR data is found, respond with \"no TLR data found\".\n\nOutput Format\n{\n  \"query\": \"<user_input>\",\n  \"status\": \"ok\",\n  \"institute_name\": \"<exact_institute_name>\",\n  \"Nirf_category\": \"TLR\",\n  \"factual_points\": [\n    \"<verbatim factual statement 1>\",\n    \"<verbatim factual statement 2>\",\n    \"<verbatim factual statement 3>\"\n  ]\n}\n\nExample\n\nInput Query:\n“TLR facts for IIT Madras”\n\nRetrieved Text:\n“Faculty strength: 686.”\n“Undergraduate students enrolled: 3589.”\n“All academic buildings are equipped with Wi-Fi.”\n\nExpected Output:\n\n{\n  \"query\": \"TLR facts for IIT Madras\",\n  \"status\": \"ok\",\n  \"institute_name\": \"Indian Institute of Technology Madras\",\n  \"Nirf_category\": \"TLR\",\n  \"factual_points\": [\n    \"Faculty strength: 686.\",\n    \"Undergraduate students enrolled: 3589.\",\n    \"All academic buildings are equipped with Wi-Fi.\"\n  ]\n}\n\nReminder\n\n🧩 You must always use the “Qdrant TLR tool” to retrieve factual NIRF text before answering.\nDo not attempt to answer directly without tool output."
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -192,
+        1840
+      ],
+      "id": "6eca6897-27ed-4363-91eb-fd4e5c991e2c",
+      "name": "Google Gemini Chat Model6",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "zI5vi9MavAWnzzIe",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -16,
+        1840
+      ],
+      "id": "4be6e466-7d80-4f1f-b2a7-38cc1fc452a1",
+      "name": "Simple Memory8"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -208,
+        2464
+      ],
+      "id": "2e657610-5818-4dad-8ae9-c328fea03523",
+      "name": "Google Gemini Chat Model7",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "zI5vi9MavAWnzzIe",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        0,
+        2480
+      ],
+      "id": "cf9a771e-5a4a-452d-a309-d22c92f8685a",
+      "name": "Simple Memory9"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "=This collection contains NIRF report data of various institutions, divided into categorized factual chunks.\nEach chunk represents a specific section (e.g., TLR, RPC, GO, OI, PS) based on the type of information extracted.\nIt includes details such as faculty data, student strength, financial resources, research activities, placements, and infrastructure, enabling category-wise retrieval of verified institutional facts.",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "durden",
+          "mode": "list",
+          "cachedResultName": "durden"
+        },
+        "topK": 35,
+        "useReranker": true,
+        "options": {
+          "searchFilterJson": "={\n  \"must\": [\n    {\n      \"key\": \"metadata.institute_name\",\n      \"match\": { \"value\": \"{{ $('Switch1').item.json.output.filter.should[0].match.value }}\" }\n    },\n    {\n      \"key\": \"metadata.Nirf_category\",\n      \"match\": { \"value\": \"TLR\" }\n    }\n  ]\n}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        64,
+        896
+      ],
+      "id": "a92e6d28-3c0b-4e3f-b904-8c20cff28d44",
+      "name": "Qdrant TLR tool",
+      "credentials": {
+        "qdrantApi": {
+          "id": "0GPSLIayxrKNg5Ad",
+          "name": "QdrantApi account"
+        }
+      },
+      "notes": "{\n  \"should\": [\n    { \"key\": \"metadata.institute_name\", \"match\": { \"value\": \"Sri Sivasubramaniya Nadar College of Engineering\" } }\n  ]\n}\n"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "=This collection contains NIRF report data of various institutions, divided into categorized factual chunks.\nEach chunk represents a specific section (e.g., TLR, RPC, GO, OI, PS) based on the type of information extracted.\nIt includes details such as faculty data, student strength, financial resources, research activities, placements, and infrastructure, enabling category-wise retrieval of verified institutional facts.",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "durden",
+          "mode": "list",
+          "cachedResultName": "durden"
+        },
+        "topK": 35,
+        "useReranker": true,
+        "options": {
+          "searchFilterJson": "={\n  \"must\": [\n    {\n      \"key\": \"metadata.institute_name\",\n      \"match\": { \"value\": \"{{ $('Switch1').item.json.output.filter.should[0].match.value }}\" }\n    },\n    {\n      \"key\": \"metadata.Nirf_category\",\n      \"match\": { \"value\": \"RP\" }\n    }\n  ]\n}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        176,
+        1392
+      ],
+      "id": "127e9c64-28f0-4029-952b-dc050b341871",
+      "name": "Qdrant RPC tool",
+      "credentials": {
+        "qdrantApi": {
+          "id": "0GPSLIayxrKNg5Ad",
+          "name": "QdrantApi account"
+        }
+      },
+      "notes": "{\n  \"should\": [\n    { \"key\": \"metadata.institute_name\", \"match\": { \"value\": \"Sri Sivasubramaniya Nadar College of Engineering\" } }\n  ]\n}\n"
+    },
+    {
+      "parameters": {
+        "modelName": "embed-english-light-v3.0"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsCohere",
+      "typeVersion": 1,
+      "position": [
+        160,
+        1536
+      ],
+      "id": "f458077e-9590-415f-bd1b-f262634e8f15",
+      "name": "Embeddings Cohere1",
+      "credentials": {
+        "cohereApi": {
+          "id": "gYpiHMBrCktKWKx8",
+          "name": "CohereApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "topN": 35
+      },
+      "type": "@n8n/n8n-nodes-langchain.rerankerCohere",
+      "typeVersion": 1,
+      "position": [
+        368,
+        1520
+      ],
+      "id": "c92021d6-9f79-4594-94b6-2ed3d6ebbc47",
+      "name": "Reranker Cohere2",
+      "credentials": {
+        "cohereApi": {
+          "id": "gYpiHMBrCktKWKx8",
+          "name": "CohereApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Code11').item.json.output[0].output.generated_prompt }}",
+        "options": {
+          "systemMessage": "You are the RPC Facts Extraction Agent.\nYour purpose is to extract only verbatim factual statements about Teaching, Learning & Resources (TLR) for a specific institute.\n\nWhen you receive a query about RPC for any institute:\n✅ Always call the “Qdrant TLR tool” to retrieve factual text before answering.\n❌ Never respond without using the tool.\n\nThe Qdrant RPC tool retrieves factual NIRF data from the \"Nirf_Report\" collection.\nIt filters by metadata.institute_name and metadata.Nirf_category = \"RP\".\n\nFrom the tool’s output:\n- Return only factual statements exactly as written (no rephrasing).\n- Preserve numbers, units, and text formatting.\n- If no results are found, return: “no RPC data found”.\n\nOutput Format:\n{\n  \"query\": \"<user_input>\",\n  \"status\": \"ok\",\n  \"institute_name\": \"<exact name>\",\n  \"Nirf_category\": \"RPC\",\n  \"factual_points\": [\n    \"<fact1>\",\n    \"<fact2>\",\n    \"<fact3>\"\n  ]\n}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -80,
+        1216
+      ],
+      "id": "c8001698-7e82-4ed5-8798-1ba95a1e48b3",
+      "name": "RPC Agent"
+    },
+    {
+      "parameters": {
+        "modelName": "embed-english-light-v3.0"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsCohere",
+      "typeVersion": 1,
+      "position": [
+        112,
+        2032
+      ],
+      "id": "fbed7f42-8cd4-4ad7-8d52-ec7e365b626c",
+      "name": "Embeddings Cohere3",
+      "credentials": {
+        "cohereApi": {
+          "id": "gYpiHMBrCktKWKx8",
+          "name": "CohereApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "topN": 20
+      },
+      "type": "@n8n/n8n-nodes-langchain.rerankerCohere",
+      "typeVersion": 1,
+      "position": [
+        240,
+        2032
+      ],
+      "id": "e457e8e8-b9a5-4aaa-a0a1-a71072fb8a00",
+      "name": "Reranker Cohere3",
+      "credentials": {
+        "cohereApi": {
+          "id": "gYpiHMBrCktKWKx8",
+          "name": "CohereApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelName": "embed-english-light-v3.0"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsCohere",
+      "typeVersion": 1,
+      "position": [
+        112,
+        2672
+      ],
+      "id": "495b9188-93fe-4743-b2ad-1e4ce66d2397",
+      "name": "Embeddings Cohere4",
+      "credentials": {
+        "cohereApi": {
+          "id": "gYpiHMBrCktKWKx8",
+          "name": "CohereApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "topN": 20
+      },
+      "type": "@n8n/n8n-nodes-langchain.rerankerCohere",
+      "typeVersion": 1,
+      "position": [
+        240,
+        2672
+      ],
+      "id": "38ad88c1-876f-4cef-b82a-659cccf57067",
+      "name": "Reranker Cohere4",
+      "credentials": {
+        "cohereApi": {
+          "id": "gYpiHMBrCktKWKx8",
+          "name": "CohereApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Code11').item.json.output[0].output.generated_prompt }}",
+        "options": {
+          "systemMessage": "You are the GO Facts Extraction Agent.\nYour purpose is to extract only verbatim factual statements about Teaching, Learning & Resources (TLR) for a specific institute.\n\nWhen you receive a query about GO for any institute:\n✅ Always call the “Qdrant TLR tool” to retrieve factual text before answering.\n❌ Never respond without using the tool.\n\nThe Qdrant GO tool retrieves factual NIRF data from the \"Nirf_Report\" collection.\nIt filters by metadata.institute_name and metadata.Nirf_category = \"RP\".\n\nFrom the tool’s output:\n- Return only factual statements exactly as written (no rephrasing).\n- Preserve numbers, units, and text formatting.\n- If no results are found, return: “no GO data found”.\n\nOutput Format:\n{\n  \"query\": \"<user_input>\",\n  \"status\": \"ok\",\n  \"institute_name\": \"<exact name>\",\n  \"Nirf_category\": \"GO\",\n  \"factual_points\": [\n    \"<fact1>\",\n    \"<fact2>\",\n    \"<fact3>\"\n  ]\n}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -96,
+        1664
+      ],
+      "id": "a9587404-40df-49d4-ba15-a339987e890c",
+      "name": "GO Agent"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('Code11').item.json.output[0].output.generated_prompt }}",
+        "options": {
+          "systemMessage": "You are the OI Facts Extraction Agent.\nYour purpose is to extract only verbatim factual statements about Teaching, Learning & Resources (TLR) for a specific institute.\n\nWhen you receive a query about OI for any institute:\n✅ Always call the “Qdrant TLR tool” to retrieve factual text before answering.\n❌ Never respond without using the tool.\n\nThe Qdrant OI tool retrieves factual NIRF data from the \"Nirf_Report\" collection.\nIt filters by metadata.institute_name and metadata.Nirf_category = \"RP\".\n\nFrom the tool’s output:\n- Return only factual statements exactly as written (no rephrasing).\n- Preserve numbers, units, and text formatting.\n- If no results are found, return: “no OI data found”.\n\nOutput Format:\n{\n  \"query\": \"<user_input>\",\n  \"status\": \"ok\",\n  \"institute_name\": \"<exact name>\",\n  \"Nirf_category\": \"OI\",\n  \"factual_points\": [\n    \"<fact1>\",\n    \"<fact2>\",\n    \"<fact3>\"\n  ]\n}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -112,
+        2224
+      ],
+      "id": "ad782e62-dc3c-4c3a-a4d4-42e146b3d097",
+      "name": "OI Agent"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "=This collection contains NIRF report data of various institutions, divided into categorized factual chunks.\nEach chunk represents a specific section (e.g., TLR, RPC, GO, OI, PS) based on the type of information extracted.\nIt includes details such as faculty data, student strength, financial resources, research activities, placements, and infrastructure, enabling category-wise retrieval of verified institutional facts.",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "Nirf_Report",
+          "mode": "list",
+          "cachedResultName": "Nirf_Report"
+        },
+        "topK": 10,
+        "useReranker": true,
+        "options": {
+          "searchFilterJson": "={\n  \"must\": [\n    {\n      \"key\": \"metadata.institute_name\",\n      \"match\": { \"value\": \"{{ $('Switch1').item.json.output.filter.should[0].match.value }}\" }\n    },\n    {\n      \"key\": \"metadata.Nirf_category\",\n      \"match\": { \"value\": \"GO\" }\n    }\n  ]\n}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        144,
+        1824
+      ],
+      "id": "eeec8ffc-d626-4b1d-8f0c-f0098816fd6a",
+      "name": "Qdrant GO tool",
+      "credentials": {
+        "qdrantApi": {
+          "id": "0GPSLIayxrKNg5Ad",
+          "name": "QdrantApi account"
+        }
+      },
+      "notes": "{\n  \"should\": [\n    { \"key\": \"metadata.institute_name\", \"match\": { \"value\": \"Sri Sivasubramaniya Nadar College of Engineering\" } }\n  ]\n}\n"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "=This collection contains NIRF report data of various institutions, divided into categorized factual chunks.\nEach chunk represents a specific section (e.g., TLR, RPC, GO, OI, PS) based on the type of information extracted.\nIt includes details such as faculty data, student strength, financial resources, research activities, placements, and infrastructure, enabling category-wise retrieval of verified institutional facts.",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "Nirf_Report",
+          "mode": "list",
+          "cachedResultName": "Nirf_Report"
+        },
+        "topK": 10,
+        "useReranker": true,
+        "options": {
+          "searchFilterJson": "={\n  \"must\": [\n    {\n      \"key\": \"metadata.institute_name\",\n      \"match\": { \"value\": \"{{ $('Switch1').item.json.output.filter.should[0].match.value }}\" }\n    },\n    {\n      \"key\": \"metadata.Nirf_category\",\n      \"match\": { \"value\": \"OI\" }\n    }\n  ]\n}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        144,
+        2432
+      ],
+      "id": "d3bf4013-4f6c-417e-903b-185fdb50dc2e",
+      "name": "Qdrant OI tool",
+      "credentials": {
+        "qdrantApi": {
+          "id": "0GPSLIayxrKNg5Ad",
+          "name": "QdrantApi account"
+        }
+      },
+      "notes": "{\n  \"should\": [\n    { \"key\": \"metadata.institute_name\", \"match\": { \"value\": \"Sri Sivasubramaniya Nadar College of Engineering\" } }\n  ]\n}\n"
+    },
+    {
+      "parameters": {
+        "modelName": "models/gemini-2.5-pro",
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -112,
+        416
+      ],
+      "id": "6a1bbb96-978a-477a-bdcb-adeac9aa26d8",
+      "name": "Google Gemini Chat Model8",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "zI5vi9MavAWnzzIe",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        176,
+        400
+      ],
+      "id": "916d0ef6-083b-42a2-894e-0654e72d3afe",
+      "name": "Simple Memory10"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.output.wssr_scores }}",
+        "options": {
+          "systemMessage": "You are an Advisor Agent specializing in analyzing NIRF parameter performance for Indian academic institutions.\nYour job is to take structured JSON inputs (containing college scores, peer college scores, and WSSR values) and provide improvement recommendations.\n\n✅ Data Context\n\nThe input will include:\n\ncollege: Rank, scores for TLR, RPC, GO, OI, Perception, and overall Score.\n\ncolleges_above: List of higher-ranked colleges with their parameter scores.\n\nWSSR: Weighted Sum of Squared Residuals for each parameter + total WSSR.\n\n✅ Responsibilities\n\nAnalyze the gaps between the input college and top-ranked peers using WSSR contributions.\n\nIdentify improvement categories based on parameter importance:\n\nHigh WSSR = biggest improvement area\n\nLow WSSR = relatively less impactful\n\nClassify recommendations into four categories:\n\nEasy → Low effort, short-term fixes (e.g., outreach events, alumni engagement).\n\nHard → Requires high investment or structural change (e.g., big infra upgrades).\n\nLess Time-Taking → Can show improvement within 1–2 years.\n\nTime-Taking → Long-term impact (3–5+ years, e.g., improving research reputation).\n\nGenerate clear improvement strategies for each parameter (TLR, RPC, GO, OI, Perception).\n\nKeep the response institutional and professional.\n\nMention where to focus first for maximum ranking improvement.\n\n✅ Output Format\n\nAlways return a structured response in this format (paragraphs + bullet lists, not JSON):\n\nCollege Analyzed: <College Name> (Rank <Rank>)\n\nKey Gap Analysis (based on WSSR):\n\nRPC: <value> (largest gap contributor)\n\nPR: <value> (second largest)\n\nTLR: <value> (moderate gap)\n\nGO: <value> (minor gap)\n\nOI: <value> (least gap)\n\nImprovement Strategy:\n\nEasy & Less Time-Taking:\n\n<recommendation>\n\n<recommendation>\n\nEasy but Time-Taking:\n\n<recommendation>\n\n<recommendation>\n\nHard & Less Time-Taking:\n\n<recommendation>\n\n<recommendation>\n\nHard & Time-Taking:\n\n<recommendation>\n\n<recommendation>\n\nSummary Focus:\n“Based on WSSR, the institution should prioritize improving <parameter> first for maximum ranking boost, while maintaining strengths in <other parameters>.”\n\n🚫 Strict Rules\n\nDo not return raw JSON.\n\nDo not explain WSSR math (just use it to guide the narrative).\n\nReject irrelevant queries (placements, salaries, politics, weather, etc.)."
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "d36d7574-d9bb-4e63-8576-9a0a549aa508",
+      "name": "suggestion agent"
+    },
+    {
+      "parameters": {
+        "fieldsToAggregate": {
+          "fieldToAggregate": [
+            {
+              "fieldToAggregate": "TLR"
+            },
+            {
+              "fieldToAggregate": "RPC"
+            },
+            {
+              "fieldToAggregate": "GO"
+            },
+            {
+              "fieldToAggregate": "OI"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        1360,
+        1392
+      ],
+      "id": "48bfba7a-5f85-4f49-a7c6-4e4733c036c2",
+      "name": "Aggregate"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  try {\n    let output = item.json.output || \"\";\n\n    // Step 1: Extract JSON block between ```json and ``` if it exists\n    const jsonMatch = output.match(/```json([\\s\\S]*?)```/);\n\n    let parsed;\n    if (jsonMatch && jsonMatch[1]) {\n      // Clean & parse the extracted JSON\n      parsed = JSON.parse(jsonMatch[1].trim());\n    } else {\n      // Step 2: If no code block, attempt to parse entire string as JSON\n      parsed = JSON.parse(output.trim());\n    }\n\n    // Step 3: Return cleaned parsed JSON\n    return { json: parsed };\n  } catch (error) {\n    // Step 4: Handle parsing errors gracefully\n    return {\n      json: {\n        status: \"error\",\n        message: \"Failed to parse JSON output\",\n        raw_output_preview: (item.json.output || \"\").slice(0, 300)\n      }\n    };\n  }\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        688
+      ],
+      "id": "52cf93d3-ad57-4382-a62d-43aa3d794556",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  try {\n    let output = item.json.output || \"\";\n\n    // Step 1: Extract JSON block between ```json and ``` if it exists\n    const jsonMatch = output.match(/```json([\\s\\S]*?)```/);\n\n    let parsed;\n    if (jsonMatch && jsonMatch[1]) {\n      // Clean & parse the extracted JSON\n      parsed = JSON.parse(jsonMatch[1].trim());\n    } else {\n      // Step 2: If no code block, attempt to parse entire string as JSON\n      parsed = JSON.parse(output.trim());\n    }\n\n    // Step 3: Return cleaned parsed JSON\n    return { json: parsed };\n  } catch (error) {\n    // Step 4: Handle parsing errors gracefully\n    return {\n      json: {\n        status: \"error\",\n        message: \"Failed to parse JSON output\",\n        raw_output_preview: (item.json.output || \"\").slice(0, 300)\n      }\n    };\n  }\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        288,
+        1216
+      ],
+      "id": "4f9db916-34cd-4062-8103-773ba713ee2e",
+      "name": "Code2"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  try {\n    // Remove Markdown formatting and parse actual JSON\n    const parsed = JSON.parse(item.json.output.replace(/```json|```/g, \"\").trim());\n    return { json: parsed };\n  } catch (error) {\n    return item; // fallback if parsing fails\n  }\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        1664
+      ],
+      "id": "d0286333-e8d9-4549-a408-81d8400c73ca",
+      "name": "Code5"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  try {\n    // Remove Markdown formatting and parse actual JSON\n    const parsed = JSON.parse(item.json.output.replace(/```json|```/g, \"\").trim());\n    return { json: parsed };\n  } catch (error) {\n    return item; // fallback if parsing fails\n  }\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        2224
+      ],
+      "id": "416afc73-2c34-4c25-b22a-580f26677b09",
+      "name": "Code6"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.output.query }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are the College Name Normalization Agent.\n\nYour job:\n- Take any user query and normalize all college names to a fixed canonical form.\n- Use ONLY the normalization dictionary below.\n- If a name does not match, return it unchanged.\n- Output should always keep the original meaning but replace college names with their normalized versions.\n\nNormalization Dictionary:\n- IIT BHU → IIT BHU\n- NIT Trichy → NIT Trichy\n- IIT Bombay → IIT Bombay\n- Indian Institute of Technology, Madras → Indian Institute of Technology, Madras\n- IIT Kharagpur → IIT Kharagpur\n- IIIT Delhi → IIIT Delhi\n- IIT Guwahati → IIT Guwahati\n- Jadavpur University → Jadavpur University\n- IIT Kanpur → IIT Kanpur\n- IIT Roorkee → IIT Roorkee\n- IIT Hyderabad → IIT Hyderabad\n- VIT Vellore → VIT Vellore\n\nExamples of variations you must normalize:\n- “iit bombay”, “bombay iit”, “iit bbay” → IIT Bombay\n- “iit madras”, “madras iit”, “iitm”, “indian institute of technology madras” → Indian Institute of Technology, Madras\n- “nitrichy”, “nit tiruchi”, “nit trichi” → NIT Trichy\n\nYour output must:\n- Preserve the original intent.\n- Replace every detected college name with the normalized canonical name.\n- Never add new information.\n- Never guess beyond the provided dictionary.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -1728,
+        3200
+      ],
+      "id": "2412e37c-511f-45b6-aa07-08c689ddf4f1",
+      "name": "AI Agent"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -1856,
+        3408
+      ],
+      "id": "d32c3672-842b-4254-9723-e16739e6aea6",
+      "name": "Google Gemini Chat Model9",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "zI5vi9MavAWnzzIe",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -1712,
+        3408
+      ],
+      "id": "7aadb29c-d4ef-480b-baec-ad2585fdc740",
+      "name": "Simple Memory1"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"query\": \"What is the placement rate and average package for CSE branch at IIT Madras in 2025?\",\n  \"type\": [\"zero\",\"zero\",\"zero\",\"one\",\"zero\"],\n  \"labels\": [\"placement\"],\n  \"generated_prompt\": \"Retrieve placement rate and average package for the CSE branch at IIT Madras for the year 2025.\",\n  \"status\": \"ok\"\n}\n"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -1552,
+        3472
+      ],
+      "id": "e2f10b3b-bfb0-4024-b663-2fdb46724ce8",
+      "name": "Structured Output Parser3",
+      "notes": "{\n  \"query\": \"What is the placement rate and average package for CSE branch at IIT Madras in 2025?\",\n  \"Type\": [\"Placement\"],\n  \"generated_prompt\": \"Retrieve placement statistics (rate and average package) for the CSE branch at IIT Madras in 2025 from the Placement Data collection.\",\n  \"status\": \"ok\"\n}\n"
+    },
+    {
+      "parameters": {
+        "modelName": "embed-english-light-v3.0"
+      },
+      "type": "@n8n/n8n-nodes-langchain.embeddingsCohere",
+      "typeVersion": 1,
+      "position": [
+        208,
+        4336
+      ],
+      "id": "932a45e6-8867-401d-86e1-42b7c0f4fa32",
+      "name": "Embeddings Cohere5",
+      "credentials": {
+        "cohereApi": {
+          "id": "gYpiHMBrCktKWKx8",
+          "name": "CohereApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -96,
+        4096
+      ],
+      "id": "c939484d-bc53-49e4-814a-1f3f5ee63e1a",
+      "name": "Google Gemini Chat Model10",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "zI5vi9MavAWnzzIe",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "topN": 20
+      },
+      "type": "@n8n/n8n-nodes-langchain.rerankerCohere",
+      "typeVersion": 1,
+      "position": [
+        368,
+        4336
+      ],
+      "id": "9bc41073-57d2-4a97-8698-45bc1decf1a7",
+      "name": "Reranker Cohere5",
+      "credentials": {
+        "cohereApi": {
+          "id": "gYpiHMBrCktKWKx8",
+          "name": "CohereApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $('AI Agent').item.json.output.generated_prompt }}",
+        "options": {
+          "systemMessage": "=🎯 You are the Placement Agent.\n\nYou MUST ALWAYS use the Tool named \"Placements Collection2\".\n\n---\n\n✅ What the Placement Data Collection Contains:\n\nMeta Data Fields:\n- institution_name (string)\n- branch/program (string, e.g., CSE, ECE, Mechanical)\n- academic_year (string, e.g., 2023–24)\n- intake (integer, sanctioned intake for the program)\n- admissions (integer, students actually admitted)\n- graduates (integer, students graduating that year)\n- placed (integer, number of students placed)\n- higher_studies (integer, number of students going for higher studies)\n- median_salary (float, in LPA)\n- average_salary (float, in LPA)\n- highest_salary (float, in LPA)\n- recruiters (list of top recruiting companies, if available)\n\nText Content:\n- Human-readable summary of placement performance for each branch/year.\n\n\n\n---\n\n✅ Your Core Responsibilities:\n\n1️⃣ Handle placement-related queries:  \n   - Placement rates, placement counts, admission vs intake.  \n   - Salary details (median, average, highest).  \n   - Branch-level placement statistics.  \n   - Higher studies count or percentage.  \n   - Recruiter information.  \n\n2️⃣ Use precise filters when possible:  \n   - Calculate placement rate = placed ÷ graduates × 100.  \n   - Compare across branches or institutions.  \n   - Report salaries in structured numeric format.  \n   - Handle multi-year queries by retrieving data for each year.  \n\n3️⃣ Always return results in structured JSON.\n\n---\n\n✅ Output Format\n\nIf the query is valid:\n{\n  \"query\": \"<the user’s full query in plain text>\",\n  \"status\": \"ok\",\n  \"results\": [\n    {\n      \"institution_name\": \"<string>\",\n      \"branch\": \"<string>\",\n      \"academic_year\": \"<string>\",\n      \"intake\": <int>,\n      \"admissions\": <int>,\n      \"graduates\": <int>,\n      \"placed\": <int>,\n      \"placement_rate\": <float>,   // derived field (placed ÷ graduates × 100)\n      \"higher_studies\": <int>,\n      \"median_salary\": <float>,\n      \"average_salary\": <float>,\n      \"highest_salary\": <float>,\n      \"recruiters\": [\"<string>\", \"<string>\", ...]\n    },\n    ...\n  ]\n}\n\nIf rejected:\n{\n  \"query\": \"<user query>\",\n  \"status\": \"reject\",\n  \"results\": null\n}\n\n---\n\n🚫 Strict Rejection Rules:\nReturn \"reject\" if:\n- The query is about NIRF ranking, TLR/RP/GO/OI/PR, or composite scores.  \n- The query is about faculty strength, designation, or research experience.  \n- The query is unrelated to placements, salaries, recruiters, or higher studies.  \n\n---\n\n✅ Example Good Queries:\n- “What is the placement rate and average package of CSE at IIT Bombay in 2024?”  \n- “Compare the highest packages of IIT Delhi and IIT Kanpur in 2023.”  \n- “How many students from Mechanical at IIT Madras went for higher studies in 2022?”  \n\n✅ Example Rejected Queries:\n- “What is IIT Madras’s NIRF rank?” → reject  \n- “List all Associate Professors at IIT Delhi.” → reject  \n- “Who is the Prime Minister of India?” → reject  \n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -96,
+        3744
+      ],
+      "id": "8aa076b9-aa60-48fa-a0a9-298e6c48196e",
+      "name": "Placements Agent"
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        80,
+        4240
+      ],
+      "id": "95f4b375-6fdc-4abc-800a-37fceb292ec9",
+      "name": "Simple Memory11"
+    },
+    {
+      "parameters": {
+        "mode": "retrieve-as-tool",
+        "toolDescription": "This collection contains structured placement performance and higher studies statistics of institutions, extracted from web scraping and reports.\nIt includes program-level data (B.Tech, M.Tech, PG, etc.) such as year-wise student intake, number admitted, number graduating, number placed, median/average/highest salaries, number pursuing higher studies, and top recruiters.\nUseful for answering queries about placement rates, salary trends, recruiter patterns, employability outcomes, and branch/program-specific placement performance over time.",
+        "qdrantCollection": {
+          "__rl": true,
+          "value": "Placement_details_New",
+          "mode": "list",
+          "cachedResultName": "Placement_details_New"
+        },
+        "topK": 10,
+        "useReranker": true,
+        "options": {
+          "searchFilterJson": "={\n  \"should\": [\n    {\n      \"key\": \"metadata.college_name\",\n      \"match\": {\n        \"value\": \"{{ $('AI Agent2').item.json.output.filter.should[1].match.value }}\"\n      }\n    }\n  ]\n}\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [
+        256,
+        4032
+      ],
+      "id": "4e479f5b-25ca-4a83-86e8-a16825b050b3",
+      "name": "Placments Collection1",
+      "credentials": {
+        "qdrantApi": {
+          "id": "0GPSLIayxrKNg5Ad",
+          "name": "QdrantApi account"
+        }
+      },
+      "notes": "{\n  \"should\": [\n    {\n      \"key\": \"metadata.college_name\",\n      \"match\": {\n        \"value\": \"{{ $('AI Agent2').item.json.output.filter.should[0].match.value }}\"\n      }\n    }\n  ]\n}\n"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        720,
+        3328
+      ],
+      "id": "4c1009ec-3ddd-492c-9ab5-d654f24d8d4c",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify($json) }}\n",
+        "options": {
+          "systemMessage": "You are the Placement Comparison & Analysis Agent.\n\nYou do NOT call any tools.\nYou do NOT query Qdrant.\nYou ONLY analyze the placement-related text provided inside the “output” fields of the input array.\n\n-------------------------------------------------------\nINPUT FORMAT YOU WILL RECEIVE:\n-------------------------------------------------------\n\nYou will receive data like:\n\n[\n  { \"output\": \"<descriptive text about IIT Madras vs IIT Bombay>\" },\n  { \"output\": \"<descriptive text about IIT Bombay>\" }\n]\n\nKey characteristics:\n- Each item contains long descriptive placement text.\n- Some items may discuss TWO institutes together.\n- Some may contain a summary of ONE institute.\n- Some may be duplicates.\n- You must merge all the information into ONE final answer.\n\n-------------------------------------------------------\nYOUR RESPONSIBILITIES:\n-------------------------------------------------------\n\n1. **Extract Relevant Information**\n   - Read all “output” text blocks.\n   - Identify ALL institutes mentioned.\n   - Extract all numeric data:\n     - Overall placement rates\n     - Graduates and placed count\n     - Median, average, highest salaries\n     - Branch-wise placement rates\n     - Branch-wise salary details (if reported)\n     - Recruiter details\n   - Do NOT invent numbers.\n   - Only use numbers present in the text.\n\n2. **Merge & Consolidate Data**\n   - If the same institute appears in multiple outputs, merge their information.\n   - Avoid repeating redundant details.\n   - Use the comparison block (if present) as the primary source.\n   - Use standalone institute summaries only to fill in missing information.\n\n3. **Perform a Clean Comparison Between Institutes**\n   If TWO institutes are mentioned:\n   - Compare overall placement rates.\n   - Compare average, median, and highest salary.\n   - Compare branch-wise placement and salary patterns.\n   - Compare recruiter diversity and strength.\n   - Identify strengths and weaknesses of each institute.\n   - Provide a clear decision on which institute performs better overall.\n\n4. **If only ONE institute is described**\n   - Give a clean, well-written summary of that institute’s placement performance.\n\n5. **Generate a SINGLE FINAL DESCRIPTIVE OUTPUT**\n   - Do NOT output JSON.\n   - Do NOT output multiple answers.\n   - Write one clean, organized comparison suited for students.\n   - Include:\n     - Overview\n     - Branch-wise comparison\n     - Salary comparison\n     - Recruiter comparison\n     - Strengths and weaknesses\n     - Final verdict:  \n       “Overall, IIT ___ performs better than IIT ___ because…”\n\n6. **Rules**\n   - Never output JSON.\n   - Never hallucinate missing data.\n   - Mention when data is missing:  \n     “Salary data for this branch is not reported.”\n   - Combine everything into ONE final answer.\n\n-------------------------------------------------------\nFINAL GOAL:\n-------------------------------------------------------\n\nProduce a single, clear, human-friendly descriptive comparison based on ALL the provided outputs combined into one consistent analysis.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        944,
+        3312
+      ],
+      "id": "b1048fdd-ded8-4694-acd9-d22c1b5f648d",
+      "name": "AI Agent1"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  try {\n    let output = item.json.output || \"\";\n\n    // Step 1: Extract JSON block between ```json and ``` if it exists\n    const jsonMatch = output.match(/```json([\\s\\S]*?)```/);\n\n    let parsed;\n    if (jsonMatch && jsonMatch[1]) {\n      // Clean & parse the extracted JSON\n      parsed = JSON.parse(jsonMatch[1].trim());\n    } else {\n      // Step 2: If no code block, attempt to parse entire string as JSON\n      parsed = JSON.parse(output.trim());\n    }\n\n    // Step 3: Return cleaned parsed JSON\n    return { json: parsed };\n  } catch (error) {\n    // Step 4: Handle parsing errors gracefully\n    return {\n      json: {\n        status: \"error\",\n        message: \"Failed to parse JSON output\",\n        raw_output_preview: (item.json.output || \"\").slice(0, 300)\n      }\n    };\n  }\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        240,
+        2976
+      ],
+      "id": "240e3e45-1f58-4d65-b8a9-1f06aee567e7",
+      "name": "Code7"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  try {\n    let output = item.json.output || \"\";\n\n    // Step 1: Extract JSON block between ```json and ``` if it exists\n    const jsonMatch = output.match(/```json([\\s\\S]*?)```/);\n\n    let parsed;\n    if (jsonMatch && jsonMatch[1]) {\n      // Clean & parse the extracted JSON\n      parsed = JSON.parse(jsonMatch[1].trim());\n    } else {\n      // Step 2: If no code block, attempt to parse entire string as JSON\n      parsed = JSON.parse(output.trim());\n    }\n\n    // Step 3: Return cleaned parsed JSON\n    return { json: parsed };\n  } catch (error) {\n    // Step 4: Handle parsing errors gracefully\n    return {\n      json: {\n        status: \"error\",\n        message: \"Failed to parse JSON output\",\n        raw_output_preview: (item.json.output || \"\").slice(0, 300)\n      }\n    };\n  }\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        272,
+        3744
+      ],
+      "id": "13171f90-b6f8-4fb8-83b4-ec28f3add1fd",
+      "name": "Code8"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        816,
+        3520
+      ],
+      "id": "488971eb-c7c5-416a-8351-e93a0fa582b3",
+      "name": "Google Gemini Chat Model11",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "zI5vi9MavAWnzzIe",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        960,
+        3520
+      ],
+      "id": "500475e0-feb2-4ca5-b396-ea2e2b31b3fa",
+      "name": "Simple Memory12"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  try {\n    let output = item.json.output || \"\";\n\n    // Step 1: Extract JSON block between ```json and ``` if present\n    const jsonMatch = output.match(/```json([\\s\\S]*?)```/);\n\n    let parsed;\n    if (jsonMatch && jsonMatch[1]) {\n      parsed = JSON.parse(jsonMatch[1].trim());\n    } else {\n      parsed = JSON.parse(output.trim());\n    }\n\n    // Step 3: Return exactly the same format you requested\n    return {\n      output: parsed\n    };\n\n  } catch (error) {\n    return {\n      output: {\n        status: \"error\",\n        message: \"Failed to parse JSON output\",\n        raw_output_preview: (item.json.output || \"\").slice(0, 300)\n      }\n    };\n  }\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2368,
+        2064
+      ],
+      "id": "733b7666-0486-454d-ad23-c2339d8da01b",
+      "name": "Code9"
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": "{\n  \"filter\": {\n    \"should\": [\n      {\n        \"key\": \"metadata.program_type\",\n        \"match\": {\n          \"value\": \"B.Tech\"\n        }\n      },\n      {\n        \"key\": \"metadata.branch\",\n        \"match\": {\n          \"value\": \"Computer Science\"\n        }\n      },\n      {\n        \"key\": \"metadata.college_name\",\n        \"match\": {\n          \"value\": \"IIT Madras\"\n        }\n      }\n    ]\n  }\n}"
+      },
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        -1104,
+        3440
+      ],
+      "id": "31500d36-d0a1-405c-9267-7e751a4830a0",
+      "name": "Structured Output Parser2"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ JSON.stringify($json) }}\n",
+        "options": {
+          "systemMessage": "You are a Web Search Interpretation Agent.\n\nYour job:\n- Read the raw Google Custom Search API JSON provided in the user message.\n- Extract human-friendly information from the \"items\" list.\n- Summarize what the search results say.\n- Provide a clean, readable explanation.\n\nRules:\n- Do NOT output JSON.\n- Do NOT repeat the raw API format.\n- Extract title, description/snippet, and what each link is about.\n- Mention the most relevant details about the person/topic searched.\n- Keep the answer short, clear, and easy to understand.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -1728,
+        3856
+      ],
+      "id": "47680b99-5165-454b-b027-79ee5bf8364d",
+      "name": "AI Agent3"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -1856,
+        4064
+      ],
+      "id": "9dc407bd-508b-42bc-8d9f-681e8c1fedc6",
+      "name": "Google Gemini Chat Model12",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "zI5vi9MavAWnzzIe",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -1712,
+        4064
+      ],
+      "id": "084d1a4e-f48a-488e-b279-ef7c105ed07d",
+      "name": "Simple Memory13"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.output.generated_prompt }}",
+        "options": {
+          "systemMessage": "ou are the College Name Normalization Agent.\n\nYour job:\n- Take any user query and normalize all college names to a fixed canonical form.\n- Use ONLY the normalization dictionary below.\n- If a name does not match, return it unchanged.\n- Output should always keep the original meaning but replace college names with their normalized versions.\n\nNormalization Dictionary:\n- Birla Institute of Technology and Science Pilani → Birla Institute of Technology and Science Pilani\n- Chandigarh University → Chandigarh University\n- IIT Bombay → IIT Bombay\n- Amrita Vishwa Vidapeetham → Amrita Vishwa Vidapeetham\n- IIT Madras → IIT Madras\n- IIT Roorkee → IIT Roorkee\n- IIT Delhi → IIT Delhi\n- IIT Jodhpur → IIT Jodhpur\n- IIT Kanpur → IIT Kanpur\n- IIT Gandhinagar → IIT Gandhinagar\n- IIT Bhuvaneswar → IIT Bhuvaneswar\n- Aligarh Muslim University → Aligarh Muslim University\n- Anna University → Anna University\n\nExamples of variations you must normalize:\n- “iit bombay”, “bombay iit”, “iit bbay” → IIT Bombay\n- “iit madras”, “madras iit”, “iitm”, “indian institute of technology madras” → IIT Madras\n- “iit delhi”, “delhi iit”, “iitd” → IIT Delhi\n- “amrita vishwavidhyapeetam”, “amrita university”, “amrita vishwa vidyapeetham” → Amrita Vishwa Vidapeetham\n- “bits pilani”, “birla institute pilani”, “bits” → Birla Institute of Technology and Science Pilani\n- “iit roorke”, “iit rorkee” → IIT Roorkee\n\nYour output must:\n- Preserve the original intent.\n- Replace every detected college name with the normalized canonical name.\n- Never add new information.\n- Never guess beyond the provided dictionary.\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -1680,
+        2080
+      ],
+      "id": "41636117-e0ed-48e0-81ed-f4bb65053815",
+      "name": "AI Agent4"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -1808,
+        2288
+      ],
+      "id": "6003d1cd-2ae7-462f-b5ed-7a69d361e740",
+      "name": "Google Gemini Chat Model13",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "zI5vi9MavAWnzzIe",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -1664,
+        2288
+      ],
+      "id": "e26c5eaf-fb32-4d3f-b407-e87dedb3e20f",
+      "name": "Simple Memory14"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1yvgRIxt7wQNsBTYnN9Gwkf3RTk7ZoAV6fnfs951WJT0",
+          "mode": "list",
+          "cachedResultName": "Birla Institute of Technology and Science  Pilani faculty data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1yvgRIxt7wQNsBTYnN9Gwkf3RTk7ZoAV6fnfs951WJT0/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 688196993,
+          "mode": "list",
+          "cachedResultName": "Faculty_Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1yvgRIxt7wQNsBTYnN9Gwkf3RTk7ZoAV6fnfs951WJT0/edit#gid=688196993"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -1152,
+        2464
+      ],
+      "id": "ed71367f-ed7f-41d5-9fe0-282d1acc5aaf",
+      "name": "Birla Institute of Technology and Science Pilani",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DvhrF8ScSFpwKqlD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1sbrCfTE7GxLnUYJCg2EcJmCoUH3Ia_ezdTC4QJ_p_XU",
+          "mode": "list",
+          "cachedResultName": "Chandigarh University faculty data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1sbrCfTE7GxLnUYJCg2EcJmCoUH3Ia_ezdTC4QJ_p_XU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 2036184410,
+          "mode": "list",
+          "cachedResultName": "Faculty_Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1sbrCfTE7GxLnUYJCg2EcJmCoUH3Ia_ezdTC4QJ_p_XU/edit#gid=2036184410"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -992,
+        2464
+      ],
+      "id": "086f09d6-2a17-4855-aa60-641b71a6c225",
+      "name": "Chandigarh University",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DvhrF8ScSFpwKqlD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1KN7eiYa1X2CajwjOI3mk0krkEubGzV1JhWf7aNluuYo",
+          "mode": "list",
+          "cachedResultName": "IIT Bombay faculty data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KN7eiYa1X2CajwjOI3mk0krkEubGzV1JhWf7aNluuYo/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1153009563,
+          "mode": "list",
+          "cachedResultName": "Faculty_Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1KN7eiYa1X2CajwjOI3mk0krkEubGzV1JhWf7aNluuYo/edit#gid=1153009563"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -848,
+        2464
+      ],
+      "id": "617929c1-48f8-4b3e-87bc-edbfad792243",
+      "name": "IIT Bombay",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DvhrF8ScSFpwKqlD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1HnH7S-ZHKPi0fA4U_RIdx0AwrzxW2yTGmGzBZNghIDY",
+          "mode": "list",
+          "cachedResultName": "Amrita Vishwa Vidapeetham faculty data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HnH7S-ZHKPi0fA4U_RIdx0AwrzxW2yTGmGzBZNghIDY/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 885488618,
+          "mode": "list",
+          "cachedResultName": "Faculty_Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HnH7S-ZHKPi0fA4U_RIdx0AwrzxW2yTGmGzBZNghIDY/edit#gid=885488618"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -704,
+        2464
+      ],
+      "id": "3ebc44b0-7ad5-4c87-9a42-c7685a3d37af",
+      "name": "Amrita Vishwa Vidapeetham",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DvhrF8ScSFpwKqlD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1UunyhH4cu2XpqKBQkTbgkh5b1MA7y4qZp6cW0JldxaI",
+          "mode": "list",
+          "cachedResultName": "IIT Madras faculty data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1UunyhH4cu2XpqKBQkTbgkh5b1MA7y4qZp6cW0JldxaI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1768782806,
+          "mode": "list",
+          "cachedResultName": "Faculty_Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1UunyhH4cu2XpqKBQkTbgkh5b1MA7y4qZp6cW0JldxaI/edit#gid=1768782806"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -528,
+        2464
+      ],
+      "id": "f6dcffc0-160d-4471-a357-e5fb037de0f0",
+      "name": "IIT Madras",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DvhrF8ScSFpwKqlD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1PbJu2-WUxtH_eSymfCoWS0rF39cyLsm6yQGgIS8Mhwo",
+          "mode": "list",
+          "cachedResultName": "IIT Roorkee faculty data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PbJu2-WUxtH_eSymfCoWS0rF39cyLsm6yQGgIS8Mhwo/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 61218052,
+          "mode": "list",
+          "cachedResultName": "Faculty_Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PbJu2-WUxtH_eSymfCoWS0rF39cyLsm6yQGgIS8Mhwo/edit#gid=61218052"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -1232,
+        2656
+      ],
+      "id": "0990ecc7-21db-466c-98e6-7b89f65d47b6",
+      "name": "IIT Roorkee",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DvhrF8ScSFpwKqlD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1eETtjoaRnEVE2zvcZTT76rNI9a0gmMjjG7qSAEBw2PM",
+          "mode": "list",
+          "cachedResultName": "IIT Delhi faculty data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1eETtjoaRnEVE2zvcZTT76rNI9a0gmMjjG7qSAEBw2PM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1711432320,
+          "mode": "list",
+          "cachedResultName": "Faculty_Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1eETtjoaRnEVE2zvcZTT76rNI9a0gmMjjG7qSAEBw2PM/edit#gid=1711432320"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -1056,
+        2656
+      ],
+      "id": "c4e2bbf7-a230-42ad-b4e7-648908b386a7",
+      "name": "IIT Delhi",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DvhrF8ScSFpwKqlD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1V_sdE37gkPf2-ro3_p7HEeAt_5rlMOX51mIQfRpxnfA",
+          "mode": "list",
+          "cachedResultName": "IIT Jodhpur faculty data ",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1V_sdE37gkPf2-ro3_p7HEeAt_5rlMOX51mIQfRpxnfA/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1019143956,
+          "mode": "list",
+          "cachedResultName": "Faculty_Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1V_sdE37gkPf2-ro3_p7HEeAt_5rlMOX51mIQfRpxnfA/edit#gid=1019143956"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -880,
+        2656
+      ],
+      "id": "dbd318b0-517f-4e05-a365-b8941eac86af",
+      "name": "IIT Jodhpur",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DvhrF8ScSFpwKqlD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1fZH9lR2cCNwW-ElfqxQT97jy88qIPnj2ohVQGATBEgs",
+          "mode": "list",
+          "cachedResultName": "IIT Kanpur faculty data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fZH9lR2cCNwW-ElfqxQT97jy88qIPnj2ohVQGATBEgs/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 643481628,
+          "mode": "list",
+          "cachedResultName": "Faculty_Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fZH9lR2cCNwW-ElfqxQT97jy88qIPnj2ohVQGATBEgs/edit#gid=643481628"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -720,
+        2656
+      ],
+      "id": "10fb672d-f073-4d58-bd3a-533daf54c2af",
+      "name": "IIT Kanpur",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DvhrF8ScSFpwKqlD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1HJIHiuvFMKue77IhLkqe8HYRr6eRwCwBafrDPpp5h_c",
+          "mode": "list",
+          "cachedResultName": "IIT Gandhinagar faculty data .xlsx",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HJIHiuvFMKue77IhLkqe8HYRr6eRwCwBafrDPpp5h_c/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1812012217,
+          "mode": "list",
+          "cachedResultName": "Faculty_Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1HJIHiuvFMKue77IhLkqe8HYRr6eRwCwBafrDPpp5h_c/edit#gid=1812012217"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -576,
+        2656
+      ],
+      "id": "25f49409-9b37-43b2-b403-867d6ecffd55",
+      "name": "IIT Gandhinagar",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DvhrF8ScSFpwKqlD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "18qt6adK9Ao6aOcgkFZbKR16cx2Y_YpvExUlAQfPE624",
+          "mode": "list",
+          "cachedResultName": "IIT Bhuvaneswar faculty data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/18qt6adK9Ao6aOcgkFZbKR16cx2Y_YpvExUlAQfPE624/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1340191209,
+          "mode": "list",
+          "cachedResultName": "Faculty_Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/18qt6adK9Ao6aOcgkFZbKR16cx2Y_YpvExUlAQfPE624/edit#gid=1340191209"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -1152,
+        2848
+      ],
+      "id": "d8829fa0-e531-4fc9-bfb5-96a835ffdc8f",
+      "name": "IIT Bhuvaneswar",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DvhrF8ScSFpwKqlD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1ZjGTvoG_OjUrUYmYGEJpt9dX6BESAGQAP0xkmR8jpWU",
+          "mode": "list",
+          "cachedResultName": "Aligarh Muslim University faculty data.xlsx",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ZjGTvoG_OjUrUYmYGEJpt9dX6BESAGQAP0xkmR8jpWU/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 418571858,
+          "mode": "list",
+          "cachedResultName": "Faculty_Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1ZjGTvoG_OjUrUYmYGEJpt9dX6BESAGQAP0xkmR8jpWU/edit#gid=418571858"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -960,
+        2848
+      ],
+      "id": "bf885cc4-69cb-4a4c-b740-ee4a06b04c02",
+      "name": "Aligarh Muslim University",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DvhrF8ScSFpwKqlD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1EeDU1mIsOdkbUDibMSZtlKtBBqPN-ZRjqO14Lme1zfs",
+          "mode": "list",
+          "cachedResultName": "Anna University faculty data ",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1EeDU1mIsOdkbUDibMSZtlKtBBqPN-ZRjqO14Lme1zfs/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1620758712,
+          "mode": "list",
+          "cachedResultName": "Faculty_Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1EeDU1mIsOdkbUDibMSZtlKtBBqPN-ZRjqO14Lme1zfs/edit#gid=1620758712"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -784,
+        2848
+      ],
+      "id": "79ff9242-61e6-4b3e-8fc7-e97b8048d417",
+      "name": "Anna University",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DvhrF8ScSFpwKqlD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1PbJu2-WUxtH_eSymfCoWS0rF39cyLsm6yQGgIS8Mhwo",
+          "mode": "list",
+          "cachedResultName": "IIT Roorkee faculty data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PbJu2-WUxtH_eSymfCoWS0rF39cyLsm6yQGgIS8Mhwo/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 61218052,
+          "mode": "list",
+          "cachedResultName": "Faculty_Data",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1PbJu2-WUxtH_eSymfCoWS0rF39cyLsm6yQGgIS8Mhwo/edit#gid=61218052"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheetsTool",
+      "typeVersion": 4.7,
+      "position": [
+        -640,
+        2848
+      ],
+      "id": "f893307b-c5cd-4897-9d68-bb6f7279eb30",
+      "name": "IIT Roorkee1",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "DvhrF8ScSFpwKqlD",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  try {\n    let output = item.json.output || \"\";\n\n    // Step 1: Extract JSON block between ```json and ``` if it exists\n    const jsonMatch = output.match(/```json([\\s\\S]*?)```/);\n\n    let parsed;\n    if (jsonMatch && jsonMatch[1]) {\n      // Clean & parse the extracted JSON\n      parsed = JSON.parse(jsonMatch[1].trim());\n    } else {\n      // Step 2: If no code block, attempt to parse entire string as JSON\n      parsed = JSON.parse(output.trim());\n    }\n\n    // Step 3: Return cleaned parsed JSON\n    return { json: parsed };\n  } catch (error) {\n    // Step 4: Handle parsing errors gracefully\n    return {\n      json: {\n        status: \"error\",\n        message: \"Failed to parse JSON output\",\n        raw_output_preview: (item.json.output || \"\").slice(0, 300)\n      }\n    };\n  }\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1328,
+        2080
+      ],
+      "id": "82f5a476-793e-4824-b557-a4e8e9b4cca1",
+      "name": "Code10"
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.output }}",
+        "options": {
+          "systemMessage": "You are the College Name Normalization Agent.\n\nYour ONLY job:\nTake the JSON input you receive and return the SAME JSON structure,\nbut with college names inside \"generated_prompt\" replaced using the\nnormalization dictionary below.\n\nVERY IMPORTANT:\n- Keep the full JSON structure EXACTLY the same.\n- Do NOT remove or add fields.\n- Do NOT change values except college names inside \"generated_prompt\".\n- Do NOT modify \"query\", \"labels\", \"type\", \"status\", etc.\n- Do NOT modify the meaning of the sentence.\n- Only replace detected college names with normalized names.\n\nIf no college name is found → return the JSON unchanged.\n\n------------------------------------------------------------\nNORMALIZATION RULES\n------------------------------------------------------------\nNormalize ONLY college names inside the \"generated_prompt\" field.\n\nIf a college name (misspelled, partial, abbreviation, variant)\nmatches an entry in the dictionary, replace it with the canonical name.\n\nIf no match → leave it unchanged.\n\n------------------------------------------------------------\nNORMALIZATION DICTIONARY (CANONICAL NAMES)\n------------------------------------------------------------\nNational Institute of Technology Warangal — 12 points\nGuru Gobind Singh Indraprastha University — 12 points\nThapar Institute of Engineering and Technology (Deemed-to-be-university) — 12 points\nMadan Mohan Malaviya University of Technology — 12 points\nShoolini University of Biotechnology and Management Sciences — 11 points\nInternational Institute of Information Technology Hyderabad — 12 points\nIndian Institute of Technology Kanpur — 12 points\nSR University — 12 points\nSri Krishna College of Engineering and Technology — 12 points\nAnna University — 13 points\nManipal Institute of Technology — 12 points\nNational Institute of Technology Kurukshetra — 12 points\nIndian Institute of Technology Indore — 12 points\nGraphic Era University — 12 points\nInternational Institute of Information Technology Bangalore — 13 points\nChandigarh University — 12 points\nIndian Institute of Technology Ropar — 13 points\nIndian Institute of Information Technology, Design & Manufacturing, Kancheepuram — 13 points\nIndian Institute of Technology Hyderabad — 12 points\nIndian Institute of Technology Mandi — 12 points\nVisvesvaraya Technological University — 12 points\nNational Institute of Technology Meghalaya — 12 points\nIndian Institute of Technology Gandhinagar — 12 points\nManipal University, Jaipur — 12 points\nC.V. Raman Global University, Odisha — 12 points\nVel Tech Rangarajan Dr. Sagunthala R & D Institute of Science and Technology — 12 points\nDelhi Technological University — 12 points\nSathyabama Institute of Science and Technology — 12 points\nNetaji Subhas University of Technology (NSUT) — 12 points\nIndian Institute of Engineering Science and Technology, Shibpur — 12 points\nAmity University — 13 points\nJain University, Bangalore — 12 points\nBirla Institute of Technology and Science, Pilani — 12 points\nS.R.M. Institute of Science and Technology — 13 points\nNational Institute of Technology Calicut — 12 points\nNational Institute of Technology Raipur — 12 points\nNational Institute of Technology Tiruchirappalli — 12 points\nMotilal Nehru National Institute of Technology — 12 points\nIndian Institute of Technology Bhilai — 12 points\nR.V. College of Engineering — 12 points\nIndian Institute of Technology Bhubaneswar — 12 points\nIndian Institute of Technology Guwahati — 12 points\nMalaviya National Institute of Technology — 12 points\nChitkara University — 12 points\nKalasalingam Academy of Research and Education — 12 points\nBanasthali Vidyapith — 12 points\nShanmugha Arts Science Technology and Research Academy — 13 points\nIndian Institute of Technology Bombay — 12 points\nIndian Institute of Technology Jammu — 12 points\nSant Longowal Institute of Engineering and Technology — 12 points\nNational Institute of Technology Patna — 12 points\nIndian Institute of Technology Roorkee — 13 points\nCOEP Technological University — 12 points\nDr. B R Ambedkar National Institute of Technology Jalandhar — 12 points\nNational Institute of Technology Silchar — 12 points\nDefence Institute of Advanced Technology — 12 points\nNational Institute of Technology Agartala — 12 points\nIndian Institute of Space Science and Technology — 12 points\nIndian Institute of Technology Patna — 12 points\nLovely Professional University — 13 points\nSardar Vallabhbhai National Institute of Technology — 12 points\nIndian Institute of Information Technology Allahabad — 12 points\nM. S. Ramaiah Institute of Technology — 12 points\nVignan's Foundation for Science, Technology and Research — 12 points\nNational Institute of Technology Durgapur — 12 points\nIndian Institute of Technology (Banaras Hindu University) Varanasi — 12 points\nAmrita Vishwa Vidyapeetham — 13 points\nPSG College of Technology — 12 points\nIndian Institute of Technology (Indian School of Mines) Dhanbad — 12 points\nAU College of Engineering (A) — 12 points\nUPES — 12 points\nJadavpur University — 12 points\nIndian Institute of Technology Madras — 12 points\nJawaharlal Nehru Technological University — 12 points\nRajiv Gandhi Institute of Petroleum Technology — 12 points\nNational Institute of Technology Srinagar — 12 points\nIndian Institute of Technology Delhi — 12 points\nAligarh Muslim University — 13 points\nNational Institute of Technology Rourkela — 13 points\nNational Institute of Technology Puducherry — 12 points\nVellore Institute of Technology — 13 points\nKoneru Lakshmaiah Education Foundation University (K L College of Engineering) — 12 points\nMaulana Azad National Institute of Technology — 13 points\nKalinga Institute of Industrial Technology — 12 points\nInstitute of Chemical Technology — 13 points\nSri Sivasubramaniya Nadar College of Engineering — 12 points\nIndraprastha Institute of Information Technology — 12 points\nIndian Institute of Technology Kharagpur — 12 points\nNational Institute of Technology Delhi — 12 points\nVisvesvaraya National Institute of Technology Nagpur — 12 points\nUniversity of Hyderabad — 12 points\nSiddaganga Institute of Technology — 12 points\nJamia Millia Islamia — 12 points\nSaveetha Institute of Medical and Technical Sciences — 12 points\nIndian Institute of Technology Jodhpur — 12 points\nIndian Institute of Technology Tirupati — 13 points\nIndian Institute of Technology Palakkad — 12 points\nNational Institute of Technology Karnataka, Surathkal — 12 points\nBirla Institute of Technology — 12 points\n\n------------------------------------------------------------\nOUTPUT FORMAT (STRICT)\n------------------------------------------------------------\nReturn EXACTLY:\n\n[\n  {\n    \"output\": {\n      \"query\": <unchanged from input>,\n      \"type\": <unchanged>,\n      \"labels\": <unchanged>,\n      \"generated_prompt\": <ONLY THIS FIELD HAS NORMALIZED COLLEGE NAMES>,\n      \"status\": <unchanged>\n    }\n  }\n]\n\nNothing else. No explanation. No extra text.\n\n------------------------------------------------------------\nEND OF SYSTEM MESSAGE\n------------------------------------------------------------\n"
+        }
+      },
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        -2352,
+        1504
+      ],
+      "id": "46a9f2d6-5862-46de-a144-5297194d8523",
+      "name": "AI Agent5"
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        -2416,
+        1744
+      ],
+      "id": "72b9b416-5d09-4da2-bdf9-48150a2a3199",
+      "name": "Google Gemini Chat Model14",
+      "credentials": {
+        "googlePalmApi": {
+          "id": "zI5vi9MavAWnzzIe",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        -2208,
+        1776
+      ],
+      "id": "07ea4062-6b05-4c4a-8b4e-083694c69dd7",
+      "name": "Simple Memory15"
+    },
+    {
+      "parameters": {
+        "jsCode": "return items.map(item => {\n  try {\n    let output = item.json.output || \"\";\n\n    // Step 1: Extract JSON block between ```json and ``` if present\n    const jsonMatch = output.match(/```json([\\s\\S]*?)```/);\n\n    let parsed;\n    if (jsonMatch && jsonMatch[1]) {\n      parsed = JSON.parse(jsonMatch[1].trim());\n    } else {\n      parsed = JSON.parse(output.trim());\n    }\n\n    // Step 3: Return exactly the same format you requested\n    return {\n      output: parsed\n    };\n\n  } catch (error) {\n    return {\n      output: {\n        status: \"error\",\n        message: \"Failed to parse JSON output\",\n        raw_output_preview: (item.json.output || \"\").slice(0, 300)\n      }\n    };\n  }\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -2000,
+        1504
+      ],
+      "id": "8d9e61af-bec3-48ac-b8b7-370219cfea26",
+      "name": "Code11"
+    },
+    {
+      "parameters": {
+        "path": "1a55e722-1a77-484c-a1a6-72a08531a0bd",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -1232,
+        2352
+      ],
+      "id": "1ee3af95-93dd-4d9d-a71d-f6d52f7274e3",
+      "name": "Webhook",
+      "webhookId": "1a55e722-1a77-484c-a1a6-72a08531a0bd"
+    },
+    {
+      "parameters": {
+        "path": "7f6d23da-f040-4efc-b181-386322a74283",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        -3040,
+        2080
+      ],
+      "id": "8b6d663d-a691-4378-aa5f-7a77172422c1",
+      "name": "Webhook1",
+      "webhookId": "7f6d23da-f040-4efc-b181-386322a74283"
+    }
+  ],
+  "pinData": {
+    "Code4": [
+      {
+        "json": {
+          "output": {
+            "filter": {
+              "should": [
+                {
+                  "key": "metadata.institute_name",
+                  "match": {
+                    "value": "Indian Institute of Information Technology, Design & Manufacturing, Kancheepuram"
+                  }
+                },
+                {
+                  "key": "metadata.Nirf_category",
+                  "match": {
+                    "value": "TLR"
+                  }
+                },
+                {
+                  "key": "metadata.Nirf_category",
+                  "match": {
+                    "value": "RPC"
+                  }
+                },
+                {
+                  "key": "metadata.Nirf_category",
+                  "match": {
+                    "value": "zero"
+                  }
+                },
+                {
+                  "key": "metadata.Nirf_category",
+                  "match": {
+                    "value": "zero"
+                  }
+                }
+              ]
+            },
+            "wssr_scores": {
+              "TLR": 2670.3260400000017,
+              "RPC": 13327.500959999996,
+              "GO": 1113.54902,
+              "OI": 773.6290799999998
+            },
+            "selected_parameters": [
+              "RPC",
+              "TLR"
+            ]
+          }
+        }
+      }
+    ],
+    "NIRF Agent retrives parameters": [
+      {
+        "json": {
+          "output": {
+            "college": {
+              "Rank": "63",
+              "College_Name": "Indian Institute of Information Technology, Design & Manufacturing, Kancheepuram",
+              "City": "New Delhi",
+              "State": "Delhi",
+              "TLR": "66.46",
+              "RPC": "30.17",
+              "GO": "73.74",
+              "OI": "52.74",
+              "Perception": "23.21",
+              "Score": "51.33"
+            },
+            "colleges_above": [
+              {
+                "Rank": "1",
+                "College_Name": "Indian Institute of Technology Madras",
+                "City": "Chennai",
+                "State": "Tamil Nadu",
+                "TLR": "95.7",
+                "RPC": "90.74",
+                "GO": "82.29",
+                "OI": "63.25",
+                "Perception": "100",
+                "Score": "88.72"
+              },
+              {
+                "Rank": "2",
+                "College_Name": "Indian Institute of Technology Delhi",
+                "City": "New Delhi",
+                "State": "Delhi",
+                "TLR": "85.89",
+                "RPC": "93.47",
+                "GO": "81.67",
+                "OI": "62.01",
+                "Perception": "93.97",
+                "Score": "85.74"
+              },
+              {
+                "Rank": "3",
+                "College_Name": "Indian Institute of Technology Bombay",
+                "City": "Mumbai",
+                "State": "Maharashtra",
+                "TLR": "87.97",
+                "RPC": "84.81",
+                "GO": "87.06",
+                "OI": "59.13",
+                "Perception": "85.04",
+                "Score": "83.65"
+              },
+              {
+                "Rank": "4",
+                "College_Name": "Indian Institute of Technology Kanpur",
+                "City": "Kanpur",
+                "State": "Uttar Pradesh",
+                "TLR": "91.77",
+                "RPC": "76.34",
+                "GO": "88.08",
+                "OI": "59.18",
+                "Perception": "78.49",
+                "Score": "81.82"
+              },
+              {
+                "Rank": "5",
+                "College_Name": "Indian Institute of Technology Kharagpur",
+                "City": "Kharagpur",
+                "State": "West Bengal",
+                "TLR": "85.26",
+                "RPC": "77.56",
+                "GO": "79.82",
+                "OI": "64.24",
+                "Perception": "74.57",
+                "Score": "78.69"
+              },
+              {
+                "Rank": "6",
+                "College_Name": "Indian Institute of Technology Roorkee",
+                "City": "Roorkee",
+                "State": "Uttarakhand",
+                "TLR": "76.06",
+                "RPC": "76.57",
+                "GO": "85.82",
+                "OI": "63.92",
+                "Perception": "60.98",
+                "Score": "75.44"
+              },
+              {
+                "Rank": "7",
+                "College_Name": "Indian Institute of Technology Hyderabad",
+                "City": "Hyderabad",
+                "State": "Telangana",
+                "TLR": "88.02",
+                "RPC": "61.39",
+                "GO": "79.2",
+                "OI": "54.39",
+                "Perception": "61.98",
+                "Score": "72.31"
+              },
+              {
+                "Rank": "8",
+                "College_Name": "Indian Institute of Technology Guwahati",
+                "City": "Guwahati",
+                "State": "Assam",
+                "TLR": "73.6",
+                "RPC": "72.89",
+                "GO": "84.68",
+                "OI": "61.4",
+                "Perception": "52.06",
+                "Score": "72.24"
+              },
+              {
+                "Rank": "9",
+                "College_Name": "National Institute of Technology Tiruchirappalli",
+                "City": "Tiruchirappalli",
+                "State": "Tamil Nadu",
+                "TLR": "73.26",
+                "RPC": "57.64",
+                "GO": "78.69",
+                "OI": "64.76",
+                "Perception": "66.54",
+                "Score": "68.14"
+              },
+              {
+                "Rank": "10",
+                "College_Name": "Indian Institute of Technology (Banaras Hindu University) Varanasi",
+                "City": "Varanasi",
+                "State": "Uttar Pradesh",
+                "TLR": "66.39",
+                "RPC": "61.68",
+                "GO": "86.03",
+                "OI": "60.51",
+                "Perception": "55.64",
+                "Score": "67.24"
+              },
+              {
+                "Rank": "11",
+                "College_Name": "Birla Institute of Technology & Science -Pilani",
+                "City": "Pilani",
+                "State": "Rajasthan",
+                "TLR": "82.07",
+                "RPC": "56.41",
+                "GO": "81.04",
+                "OI": "60.41",
+                "Perception": "32.29",
+                "Score": "67.02"
+              },
+              {
+                "Rank": "12",
+                "College_Name": "Indian Institute of Technology Indore",
+                "City": "Indore",
+                "State": "Madhya Pradesh",
+                "TLR": "81.25",
+                "RPC": "59.55",
+                "GO": "76.52",
+                "OI": "63.77",
+                "Perception": "27.15",
+                "Score": "66.65"
+              },
+              {
+                "Rank": "13",
+                "College_Name": "National Institute of Technology Rourkela",
+                "City": "Rourkela",
+                "State": "Odisha",
+                "TLR": "83.55",
+                "RPC": "59.25",
+                "GO": "76.89",
+                "OI": "61.74",
+                "Perception": "22.37",
+                "Score": "66.62"
+              },
+              {
+                "Rank": "14",
+                "College_Name": "S.R.M. Institute of Science and Technology",
+                "City": "Chennai",
+                "State": "Tamil Nadu",
+                "TLR": "78.69",
+                "RPC": "68.93",
+                "GO": "65.43",
+                "OI": "67.09",
+                "Perception": "17.45",
+                "Score": "65.83"
+              },
+              {
+                "Rank": "15",
+                "College_Name": "Indian Institute of Technology (Indian School of Mines)",
+                "City": "Dhanbad",
+                "State": "Jharkhand",
+                "TLR": "72.84",
+                "RPC": "62.49",
+                "GO": "77.02",
+                "OI": "61.36",
+                "Perception": "32.29",
+                "Score": "65.37"
+              },
+              {
+                "Rank": "16",
+                "College_Name": "Vellore Institute of Technology",
+                "City": "Vellore",
+                "State": "Tamil Nadu",
+                "TLR": "66.77",
+                "RPC": "67.6",
+                "GO": "72.22",
+                "OI": "61.01",
+                "Perception": "43.97",
+                "Score": "65.25"
+              },
+              {
+                "Rank": "17",
+                "College_Name": "National Institute of Technology Karnataka, Surathkal",
+                "City": "Surathkal",
+                "State": "Karnataka",
+                "TLR": "75.38",
+                "RPC": "51.8",
+                "GO": "78.11",
+                "OI": "62.49",
+                "Perception": "45.7",
+                "Score": "64.59"
+              },
+              {
+                "Rank": "18",
+                "College_Name": "Jadavpur University",
+                "City": "Kolkata",
+                "State": "West Bengal",
+                "TLR": "79.56",
+                "RPC": "59.41",
+                "GO": "71.46",
+                "OI": "48.6",
+                "Perception": "37",
+                "Score": "64.54"
+              },
+              {
+                "Rank": "19",
+                "College_Name": "Indian Institute of Technology Patna",
+                "City": "Patna",
+                "State": "Bihar",
+                "TLR": "79.24",
+                "RPC": "55.04",
+                "GO": "78.4",
+                "OI": "63.95",
+                "Perception": "21.73",
+                "Score": "64.52"
+              },
+              {
+                "Rank": "20",
+                "College_Name": "Anna University",
+                "City": "Chennai",
+                "State": "Tamil Nadu",
+                "TLR": "69.43",
+                "RPC": "62.8",
+                "GO": "63.28",
+                "OI": "51.12",
+                "Perception": "60.73",
+                "Score": "63.51"
+              },
+              {
+                "Rank": "21",
+                "College_Name": "National Institute of Technology Calicut",
+                "City": "Kozhikode",
+                "State": "Kerala",
+                "TLR": "83.65",
+                "RPC": "40",
+                "GO": "79.12",
+                "OI": "66.66",
+                "Perception": "34.71",
+                "Score": "63.05"
+              },
+              {
+                "Rank": "22",
+                "College_Name": "Siksha `O` Anusandhan",
+                "City": "Bhubaneswar",
+                "State": "Odisha",
+                "TLR": "85.34",
+                "RPC": "43.83",
+                "GO": "70.48",
+                "OI": "73.26",
+                "Perception": "24.03",
+                "Score": "62.58"
+              },
+              {
+                "Rank": "23",
+                "College_Name": "Amrita Vishwa Vidyapeetham",
+                "City": "Coimbatore",
+                "State": "Tamil Nadu",
+                "TLR": "80.74",
+                "RPC": "51.78",
+                "GO": "67.71",
+                "OI": "64.19",
+                "Perception": "27.53",
+                "Score": "62.46"
+              },
+              {
+                "Rank": "24",
+                "College_Name": "Jamia Millia Islamia",
+                "City": "New Delhi",
+                "State": "Delhi",
+                "TLR": "67.5",
+                "RPC": "59.18",
+                "GO": "78.28",
+                "OI": "67.19",
+                "Perception": "20.43",
+                "Score": "62.42"
+              },
+              {
+                "Rank": "25",
+                "College_Name": "Indian Institute of Technology Gandhinagar",
+                "City": "Gandhinagar",
+                "State": "Gujarat",
+                "TLR": "85.82",
+                "RPC": "41.07",
+                "GO": "74.62",
+                "OI": "63.82",
+                "Perception": "29.36",
+                "Score": "62.31"
+              },
+              {
+                "Rank": "26",
+                "College_Name": "Indian Institute of Technology Mandi",
+                "City": "Mandi",
+                "State": "Himachal Pradesh",
+                "TLR": "81.9",
+                "RPC": "42.61",
+                "GO": "78.29",
+                "OI": "68.77",
+                "Perception": "21.95",
+                "Score": "62.08"
+              },
+              {
+                "Rank": "27",
+                "College_Name": "Indian Institute of Technology Jodhpur",
+                "City": "Jodhpur",
+                "State": "Rajasthan",
+                "TLR": "86.92",
+                "RPC": "44.03",
+                "GO": "70.43",
+                "OI": "66.41",
+                "Perception": "12.93",
+                "Score": "61.31"
+              },
+              {
+                "Rank": "28",
+                "College_Name": "National Institute of Technology Warangal",
+                "City": "Warangal",
+                "State": "Telangana",
+                "TLR": "74.94",
+                "RPC": "49.23",
+                "GO": "73.64",
+                "OI": "57.32",
+                "Perception": "33.44",
+                "Score": "61.05"
+              },
+              {
+                "Rank": "29",
+                "College_Name": "Thapar Institute of Engineering and Technology (Deemed-to-be-university)",
+                "City": "Patiala",
+                "State": "Punjab",
+                "TLR": "75.12",
+                "RPC": "50.86",
+                "GO": "73.27",
+                "OI": "65.68",
+                "Perception": "19.53",
+                "Score": "60.97"
+              },
+              {
+                "Rank": "30",
+                "College_Name": "Delhi Technological University",
+                "City": "New Delhi",
+                "State": "Delhi",
+                "TLR": "73.01",
+                "RPC": "46.71",
+                "GO": "79.17",
+                "OI": "54.82",
+                "Perception": "36.25",
+                "Score": "60.85"
+              },
+              {
+                "Rank": "31",
+                "College_Name": "Chandigarh University",
+                "City": "Mohali",
+                "State": "Punjab",
+                "TLR": "73.26",
+                "RPC": "57.93",
+                "GO": "59.17",
+                "OI": "74.33",
+                "Perception": "18.39",
+                "Score": "60.46"
+              },
+              {
+                "Rank": "32",
+                "College_Name": "Indian Institute of Technology Ropar",
+                "City": "Rupnagar",
+                "State": "Punjab",
+                "TLR": "72.46",
+                "RPC": "47.74",
+                "GO": "75.18",
+                "OI": "60.41",
+                "Perception": "25.23",
+                "Score": "59.66"
+              },
+              {
+                "Rank": "33",
+                "College_Name": "Kalasalingam Academy of Research and Education",
+                "City": "Krishnan Koil",
+                "State": "Tamil Nadu",
+                "TLR": "78.03",
+                "RPC": "42.46",
+                "GO": "72.16",
+                "OI": "77.18",
+                "Perception": "7.27",
+                "Score": "59.03"
+              },
+              {
+                "Rank": "34",
+                "College_Name": "Aligarh Muslim University",
+                "City": "Aligarh",
+                "State": "Uttar Pradesh",
+                "TLR": "76.86",
+                "RPC": "55.65",
+                "GO": "64.17",
+                "OI": "41.19",
+                "Perception": "23",
+                "Score": "59.01"
+              },
+              {
+                "Rank": "35",
+                "College_Name": "Koneru Lakshmaiah Education Foundation University (K L College of Engineering)",
+                "City": "Vaddeswaram",
+                "State": "Andhra Pradesh",
+                "TLR": "77.55",
+                "RPC": "48.67",
+                "GO": "69.94",
+                "OI": "66.84",
+                "Perception": "4.12",
+                "Score": "58.95"
+              },
+              {
+                "Rank": "36",
+                "College_Name": "Kalinga Institute of Industrial Technology",
+                "City": "Bhubaneswar",
+                "State": "Odisha",
+                "TLR": "78.64",
+                "RPC": "47.76",
+                "GO": "60.32",
+                "OI": "77.29",
+                "Perception": "10.76",
+                "Score": "58.79"
+              },
+              {
+                "Rank": "37",
+                "College_Name": "Amity University",
+                "City": "Gautam Budh Nagar",
+                "State": "Uttar Pradesh",
+                "TLR": "66.68",
+                "RPC": "65.39",
+                "GO": "62.04",
+                "OI": "59.02",
+                "Perception": "6.04",
+                "Score": "58.53"
+              },
+              {
+                "Rank": "38",
+                "College_Name": "International Institute of Information Technology Hyderabad",
+                "City": "Hyderabad",
+                "State": "Telangana",
+                "TLR": "75.84",
+                "RPC": "43.22",
+                "GO": "70.72",
+                "OI": "63.32",
+                "Perception": "22.58",
+                "Score": "58.45"
+              },
+              {
+                "Rank": "39",
+                "College_Name": "Indian Institute of Technology Bhubaneswar",
+                "City": "Bhubaneswar",
+                "State": "Odisha",
+                "TLR": "74.57",
+                "RPC": "39.14",
+                "GO": "75.07",
+                "OI": "62.69",
+                "Perception": "28.27",
+                "Score": "58.22"
+              },
+              {
+                "Rank": "40",
+                "College_Name": "Shanmugha Arts Science Technology & Research Academy",
+                "City": "Thanjavur",
+                "State": "Tamil Nadu",
+                "TLR": "80.47",
+                "RPC": "35.94",
+                "GO": "73.7",
+                "OI": "72.8",
+                "Perception": "10.76",
+                "Score": "58.02"
+              },
+              {
+                "Rank": "41",
+                "College_Name": "Institute of Chemical Technology",
+                "City": "Mumbai",
+                "State": "Maharashtra",
+                "TLR": "76.35",
+                "RPC": "50.35",
+                "GO": "64.94",
+                "OI": "53.35",
+                "Perception": "16.24",
+                "Score": "57.96"
+              },
+              {
+                "Rank": "42",
+                "College_Name": "Malaviya National Institute of Technology",
+                "City": "Jaipur",
+                "State": "Rajasthan",
+                "TLR": "69.29",
+                "RPC": "51.84",
+                "GO": "70.23",
+                "OI": "60.14",
+                "Perception": "10.48",
+                "Score": "57.45"
+              },
+              {
+                "Rank": "43",
+                "College_Name": "UPES",
+                "City": "Dehradun",
+                "State": "Uttarakhand",
+                "TLR": "71.34",
+                "RPC": "55.5",
+                "GO": "54.26",
+                "OI": "62.65",
+                "Perception": "18.16",
+                "Score": "56.99"
+              },
+              {
+                "Rank": "44",
+                "College_Name": "Visvesvaraya National Institute of Technology, Nagpur",
+                "City": "Nagpur",
+                "State": "Maharashtra",
+                "TLR": "71.55",
+                "RPC": "44.33",
+                "GO": "71.94",
+                "OI": "56.04",
+                "Perception": "18.16",
+                "Score": "56.58"
+              },
+              {
+                "Rank": "45",
+                "College_Name": "Saveetha Institute of Medical and Technical Sciences",
+                "City": "Chennai",
+                "State": "Tamil Nadu",
+                "TLR": "75.77",
+                "RPC": "61.58",
+                "GO": "40.58",
+                "OI": "71.22",
+                "Perception": "1.07",
+                "Score": "56.55"
+              },
+              {
+                "Rank": "46",
+                "College_Name": "Symbiosis International",
+                "City": "Pune",
+                "State": "Maharashtra",
+                "TLR": "69.68",
+                "RPC": "51.85",
+                "GO": "65.38",
+                "OI": "54.68",
+                "Perception": "12.13",
+                "Score": "56.22"
+              },
+              {
+                "Rank": "47",
+                "College_Name": "Sri Sivasubramaniya Nadar College of Engineering",
+                "City": "Kalavakkam",
+                "State": "Tamil Nadu",
+                "TLR": "71.29",
+                "RPC": "43.96",
+                "GO": "70.01",
+                "OI": "57.78",
+                "Perception": "17.21",
+                "Score": "56.08"
+              },
+              {
+                "Rank": "48",
+                "College_Name": "Lovely Professional University",
+                "City": "Phagwara",
+                "State": "Punjab",
+                "TLR": "63.04",
+                "RPC": "52.88",
+                "GO": "62.53",
+                "OI": "66.88",
+                "Perception": "20.21",
+                "Score": "55.99"
+              },
+              {
+                "Rank": "49",
+                "College_Name": "National Institute of Technology Durgapur",
+                "City": "Durgapur",
+                "State": "West Bengal",
+                "TLR": "71.25",
+                "RPC": "38.14",
+                "GO": "77.92",
+                "OI": "58.39",
+                "Perception": "16.97",
+                "Score": "55.94"
+              },
+              {
+                "Rank": "50",
+                "College_Name": "National Institute of Technology Silchar",
+                "City": "Silchar",
+                "State": "Assam",
+                "TLR": "66.6",
+                "RPC": "51.48",
+                "GO": "70.15",
+                "OI": "54.71",
+                "Perception": "9.92",
+                "Score": "55.91"
+              },
+              {
+                "Rank": "51",
+                "College_Name": "Birla Institute of Technology",
+                "City": "Ranchi",
+                "State": "Jharkhand",
+                "TLR": "76.22",
+                "RPC": "40.21",
+                "GO": "66.03",
+                "OI": "52.07",
+                "Perception": "19.31",
+                "Score": "55.28"
+              },
+              {
+                "Rank": "52",
+                "College_Name": "Graphic Era University",
+                "City": "Dehradun",
+                "State": "Uttarakhand",
+                "TLR": "68.63",
+                "RPC": "55.33",
+                "GO": "47.5",
+                "OI": "58.38",
+                "Perception": "27.34",
+                "Score": "55.26"
+              },
+              {
+                "Rank": "53",
+                "College_Name": "National Institute of Technology Patna",
+                "City": "Patna",
+                "State": "Bihar",
+                "TLR": "58.95",
+                "RPC": "51.69",
+                "GO": "73.81",
+                "OI": "53.01",
+                "Perception": "6.35",
+                "Score": "53.89"
+              },
+              {
+                "Rank": "54",
+                "College_Name": "Indian Institute of Engineering Science and Technology, Shibpur",
+                "City": "Howrah",
+                "State": "West Bengal",
+                "TLR": "66.32",
+                "RPC": "37.75",
+                "GO": "70.93",
+                "OI": "52.44",
+                "Perception": "29.71",
+                "Score": "53.63"
+              },
+              {
+                "Rank": "55",
+                "College_Name": "Dr. B R Ambedkar National Institute of Technology, Jalandhar",
+                "City": "Jalandhar",
+                "State": "Punjab",
+                "TLR": "71.26",
+                "RPC": "40.49",
+                "GO": "61.88",
+                "OI": "62.76",
+                "Perception": "11.86",
+                "Score": "53.38"
+              },
+              {
+                "Rank": "56",
+                "College_Name": "Indian Institute of Technology Jammu",
+                "City": "Jammu",
+                "State": "Jammu and Kashmir",
+                "TLR": "80.73",
+                "RPC": "31.9",
+                "GO": "60.05",
+                "OI": "57.78",
+                "Perception": "15",
+                "Score": "53.08"
+              },
+              {
+                "Rank": "57",
+                "College_Name": "Indian Institute of Technology, Tirupati",
+                "City": "Tirupati",
+                "State": "Andhra Pradesh",
+                "TLR": "81.96",
+                "RPC": "22.84",
+                "GO": "66.17",
+                "OI": "54",
+                "Perception": "26.59",
+                "Score": "52.73"
+              },
+              {
+                "Rank": "58",
+                "College_Name": "Manipal University Jaipur",
+                "City": "Jaipur",
+                "State": "Rajasthan",
+                "TLR": "71.67",
+                "RPC": "40.11",
+                "GO": "58.63",
+                "OI": "69.16",
+                "Perception": "5.09",
+                "Score": "52.69"
+              },
+              {
+                "Rank": "59",
+                "College_Name": "Manipal Institute of Technology",
+                "City": "Manipal",
+                "State": "Karnataka",
+                "TLR": "68.27",
+                "RPC": "41.71",
+                "GO": "60.77",
+                "OI": "58.59",
+                "Perception": "15.5",
+                "Score": "52.55"
+              },
+              {
+                "Rank": "60",
+                "College_Name": "Madan Mohan Malaviya University of Technology",
+                "City": "Gorakhpur",
+                "State": "Uttar Pradesh",
+                "TLR": "76.52",
+                "RPC": "24.75",
+                "GO": "68.59",
+                "OI": "71.41",
+                "Perception": "12.13",
+                "Score": "52.45"
+              },
+              {
+                "Rank": "61",
+                "College_Name": "Indian Institute of Space Science and Technology",
+                "City": "Thiruvananthapuram",
+                "State": "Kerala",
+                "TLR": "75.88",
+                "RPC": "25.19",
+                "GO": "66.94",
+                "OI": "60.04",
+                "Perception": "27.34",
+                "Score": "52.44"
+              },
+              {
+                "Rank": "62",
+                "College_Name": "Motilal Nehru National Institute of Technology",
+                "City": "Prayagraj",
+                "State": "Uttar Pradesh",
+                "TLR": "63.15",
+                "RPC": "37.51",
+                "GO": "74.36",
+                "OI": "55.38",
+                "Perception": "15.5",
+                "Score": "52.15"
+              }
+            ]
+          }
+        }
+      }
+    ],
+    "AI Agent5": [
+      {
+        "json": {
+          "output": "```json\n[\n  {\n    \"output\": {\n      \"query\": \"tell me how to improvise teh ranking of iitdm kancheepuram\",\n      \"type\": [\n        \"zero\",\n        \"one\",\n        \"one\",\n        \"one\",\n        \"zero\"\n      ],\n      \"labels\": [\n        \"nirf\",\n        \"faculty\",\n        \"placement\"\n      ],\n      \"generated_prompt\": \"Suggest improvements across NIRF parameters (TLR, RP, GO, OI, perception) for Indian Institute of Information Technology, Design & Manufacturing, Kancheepuram.\",\n      \"status\": \"ok\"\n    }\n  }\n]\n```"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "When chat message received": {
+      "main": [
+        []
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Router Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Router Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Router Agent": {
+      "main": [
+        [
+          {
+            "node": "Code9",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Cohere2": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Placments Collection",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Placments Collection": {
+      "ai_tool": [
+        [
+          {
+            "node": "Placements Agent1",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "NIRF Agent retrives parameters",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Structured Output Parser1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model3": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "ai_languageModel",
+            "index": 0
+          },
+          {
+            "node": "Placements Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory2": {
+      "ai_memory": [
+        [
+          {
+            "node": "NIRF Agent retrives parameters",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NIRF Excel Data": {
+      "ai_tool": [
+        [
+          {
+            "node": "NIRF Agent retrives parameters",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "NIRF Agent retrives parameters": {
+      "main": [
+        [
+          {
+            "node": "Code",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser1": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "NIRF Agent retrives parameters",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model4": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Faculty details agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory4": {
+      "ai_memory": [
+        [
+          {
+            "node": "Faculty details agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent2": {
+      "main": [
+        [
+          {
+            "node": "Placements Agent1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Placements Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combined All Universities Summary": {
+      "ai_tool": [
+        [
+          {
+            "node": "Faculty details agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory3": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reranker Cohere": {
+      "ai_reranker": [
+        [
+          {
+            "node": "Placments Collection",
+            "type": "ai_reranker",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code": {
+      "main": [
+        [
+          {
+            "node": "Code4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model2": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "RPC Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory5": {
+      "ai_memory": [
+        [
+          {
+            "node": "RPC Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory6": {
+      "ai_memory": [
+        [
+          {
+            "node": "Placements Agent1",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch": {
+      "main": [
+        [
+          {
+            "node": "Code3",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "AI Agent5",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [],
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "HTTP Request4",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request4": {
+      "main": [
+        [
+          {
+            "node": "AI Agent3",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model5": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "TLR  agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory7": {
+      "ai_memory": [
+        [
+          {
+            "node": "TLR  agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Cohere": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant TLR tool",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reranker Cohere1": {
+      "ai_reranker": [
+        [
+          {
+            "node": "Qdrant TLR tool",
+            "type": "ai_reranker",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code4": {
+      "main": [
+        [
+          {
+            "node": "Switch1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "suggestion agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Switch1": {
+      "main": [
+        [],
+        [],
+        [],
+        []
+      ]
+    },
+    "Google Gemini Chat Model6": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "GO Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory8": {
+      "ai_memory": [
+        [
+          {
+            "node": "GO Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model7": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "OI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory9": {
+      "ai_memory": [
+        [
+          {
+            "node": "OI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant TLR tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "TLR  agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant RPC tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "RPC Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Cohere1": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant RPC tool",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reranker Cohere2": {
+      "ai_reranker": [
+        [
+          {
+            "node": "Qdrant RPC tool",
+            "type": "ai_reranker",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "RPC Agent": {
+      "main": [
+        [
+          {
+            "node": "Code2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Cohere3": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant GO tool",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reranker Cohere3": {
+      "ai_reranker": [
+        [
+          {
+            "node": "Qdrant GO tool",
+            "type": "ai_reranker",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Cohere4": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Qdrant OI tool",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reranker Cohere4": {
+      "ai_reranker": [
+        [
+          {
+            "node": "Qdrant OI tool",
+            "type": "ai_reranker",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant GO tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "GO Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Qdrant OI tool": {
+      "ai_tool": [
+        [
+          {
+            "node": "OI Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model8": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "suggestion agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory10": {
+      "ai_memory": [
+        [
+          {
+            "node": "suggestion agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "TLR  agent": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GO Agent": {
+      "main": [
+        [
+          {
+            "node": "Code5",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OI Agent": {
+      "main": [
+        [
+          {
+            "node": "Code6",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code2": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code5": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code6": {
+      "main": [
+        [
+          {
+            "node": "Aggregate",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model9": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory1": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser3": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model10": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Placements Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory11": {
+      "ai_memory": [
+        [
+          {
+            "node": "Placements Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Embeddings Cohere5": {
+      "ai_embedding": [
+        [
+          {
+            "node": "Placments Collection1",
+            "type": "ai_embedding",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reranker Cohere5": {
+      "ai_reranker": [
+        [
+          {
+            "node": "Placments Collection1",
+            "type": "ai_reranker",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Placments Collection1": {
+      "ai_tool": [
+        [
+          {
+            "node": "Placements Agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Placements Agent1": {
+      "main": [
+        [
+          {
+            "node": "Code7",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Placements Agent": {
+      "main": [
+        [
+          {
+            "node": "Code8",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code7": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code8": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model11": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory12": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent1",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code9": {
+      "main": [
+        [
+          {
+            "node": "Switch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser2": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Agent2",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model12": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent3",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory13": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent3",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent4": {
+      "main": [
+        [
+          {
+            "node": "Code10",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model13": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent4",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory14": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent4",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Birla Institute of Technology and Science Pilani": {
+      "ai_tool": [
+        [
+          {
+            "node": "Faculty details agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chandigarh University": {
+      "ai_tool": [
+        [
+          {
+            "node": "Faculty details agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IIT Bombay": {
+      "ai_tool": [
+        [
+          {
+            "node": "Faculty details agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Amrita Vishwa Vidapeetham": {
+      "ai_tool": [
+        [
+          {
+            "node": "Faculty details agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IIT Madras": {
+      "ai_tool": [
+        [
+          {
+            "node": "Faculty details agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IIT Roorkee": {
+      "ai_tool": [
+        [
+          {
+            "node": "Faculty details agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IIT Delhi": {
+      "ai_tool": [
+        [
+          {
+            "node": "Faculty details agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IIT Jodhpur": {
+      "ai_tool": [
+        [
+          {
+            "node": "Faculty details agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IIT Kanpur": {
+      "ai_tool": [
+        [
+          {
+            "node": "Faculty details agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IIT Gandhinagar": {
+      "ai_tool": [
+        [
+          {
+            "node": "Faculty details agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IIT Bhuvaneswar": {
+      "ai_tool": [
+        [
+          {
+            "node": "Faculty details agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aligarh Muslim University": {
+      "ai_tool": [
+        [
+          {
+            "node": "Faculty details agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Anna University": {
+      "ai_tool": [
+        [
+          {
+            "node": "Faculty details agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "IIT Roorkee1": {
+      "ai_tool": [
+        [
+          {
+            "node": "Faculty details agent",
+            "type": "ai_tool",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code10": {
+      "main": [
+        [
+          {
+            "node": "Faculty details agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model14": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent5",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory15": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent5",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent5": {
+      "main": [
+        [
+          {
+            "node": "Code11",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code11": {
+      "main": [
+        [
+          {
+            "node": "NIRF Agent retrives parameters",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Webhook1": {
+      "main": [
+        [
+          {
+            "node": "Router Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "783226fd-41dc-4fff-ae0e-e8cfdcf3891b",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "6e9360df479a7a9ec0a5fb5e4e9c29f62791a3f1495c1e70ecb4f9e78c63bc54"
+  },
+  "id": "QUDi7a0BoJp2kSwn",
+  "tags": []
+}
